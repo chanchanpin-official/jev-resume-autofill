@@ -70,10 +70,20 @@ const ROOT=path.resolve(__dirname,'..');
   assert.equal((await draftTransfer({kind:'draft-backup',action:'write',backup:localBackup})).data.saved,true);
   assert.deepEqual((await draftTransfer({kind:'draft-backup',action:'read'})).data.backup,localBackup);
   assert.equal((await draftTransfer({kind:'draft-backup',action:'write',backup:{...localBackup,url:'https://wrong.invalid/'}})).ok,false);
-  const oldWorker=worker;const replacement=context.waitForEvent('serviceworker',{timeout:15000});
-  await worker.evaluate(()=>setTimeout(()=>chrome.runtime.reload(),0));
-  worker=await replacement;
-  let workerReady=false;for(let attempt=0;attempt<30;attempt++){try{workerReady=await worker.evaluate(()=>typeof startTab==='function');if(workerReady)break;}catch(error){if(!error.message.includes('No SW'))throw error;}await page.waitForTimeout(100);worker=context.serviceWorkers().find(w=>w!==oldWorker&&w.url()===oldWorker.url())||worker;}assert(workerReady,'Reloaded worker must finish starting');
+  const workerUrl=worker.url();
+  await worker.evaluate(()=>{globalThis.__fixtureBeforeReload=true;setTimeout(()=>chrome.runtime.reload(),0);});
+  // Chromium may reuse its Playwright worker handle and does not always emit a
+  // second serviceworker event on reload. Wake the new extension through its
+  // actual options page, then verify a fresh execution context and saved data.
+  const wakeup=await context.newPage();let workerReady=false;
+  for(let attempt=0;attempt<40&&!workerReady;attempt++){
+    try{await wakeup.goto(workerUrl.replace(/background\.js$/, 'options.html'),{timeout:3000});}catch{}
+    for(const candidate of context.serviceWorkers().filter(w=>w.url()===workerUrl)){
+      try{if(await candidate.evaluate(()=>typeof startTab==='function'&&!globalThis.__fixtureBeforeReload)){worker=candidate;workerReady=true;break;}}catch{}
+    }
+    if(!workerReady)await page.waitForTimeout(100);
+  }
+  await wakeup.close();assert(workerReady,'Reload must start a fresh service worker execution context');
   assert.deepEqual((await draftTransfer({kind:'draft-backup',action:'read'})).data.backup,localBackup);
   await backupPage.goto('https://xyz.51job.com/consumer/pc/resume/index?fixture=other');assert.equal((await draftTransfer({kind:'draft-backup',action:'read'})).data.backup,null);
   await backupPage.goto(localBackup.url);assert.equal((await draftTransfer({kind:'draft-backup',action:'clear'})).data.saved,true);assert.equal((await draftTransfer({kind:'draft-backup',action:'read'})).data.backup,null);await backupPage.close();
