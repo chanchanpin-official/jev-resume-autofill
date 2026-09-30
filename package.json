@@ -1,0 +1,21 @@
+{
+  "name": "jev-resume-autofill",
+  "private": true,
+  "version": "0.2.0",
+  "scripts": {
+    "test": "python3 -B -m unittest discover -s tests -p 'test_*.py' && node tests/browser.cjs && node tests/extension.cjs && node tests/resilience.cjs && node tests/streaming.cjs && node tests/feishu.cjs && node tests/beisen.cjs && node tests/project-policy.cjs && node tests/popup.cjs && node tests/51job.cjs && node tests/manual-protection.cjs && node tests/date-convention.cjs && node tests/question-context.cjs && node tests/draft-attachments.cjs && node tests/draft-commit-first.cjs && node tests/draft-checkpoint.cjs && node tests/save-diagnostics.cjs && node tests/51job-complete-basic.cjs && node tests/51job-optional-review.cjs && node tests/section-review.cjs && node tests/51job-reordered.cjs && node tests/handoff.cjs",
+    "start": "python3 -B bridge/server.py",
+    "package": "python3 -B scripts/package.py",
+    "test:python": "python3 -B -m unittest discover -s tests -p 'test_*.py'",
+    "test:widgets": "node tests/51job-widgets.cjs && node tests/date-save-format.cjs",
+    "configure": "python3 -B scripts/configure.py",
+    "audit": "python3 -B scripts/audit_public.py"
+  },
+  "description": "Grounded resume form filling with Jev and a configurable LLM",
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "1.58.2",
+    "vue": "2.7.16",
+    "element-ui": "2.15.14"
+  }
+}

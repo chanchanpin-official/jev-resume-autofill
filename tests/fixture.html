@@ -1,0 +1,32 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><title>示例科技 · 用户研究员申请</title><style>body{font:15px system-ui;color:#263e36;background:#f4f5f1;max-width:900px;margin:32px auto;padding-bottom:400px}h1{font-size:28px}section{background:white;padding:22px;margin:20px 0;border:1px solid #dee4dc;border-radius:8px}.form-item{margin:12px 0;display:grid;grid-template-columns:160px 1fr;gap:10px}input,select,textarea,button,[contenteditable]{font:inherit;padding:9px;border:1px solid #bdcabc;border-radius:4px}fieldset{border:1px solid #ddd;margin:16px 0}button{cursor:pointer;background:#e6eee2}.popup{border:1px solid #9bad96;background:#fff;padding:5px;width:350px}.popup [role=option]{padding:10px;cursor:pointer}.popup [role=option]:hover{background:#dbe8d5}.education-item{padding:12px;border:1px dashed #aabb9d;margin:10px 0}[hidden]{display:none!important}</style></head><body>
+<h1>示例科技 / 用户研究员</h1><p>这是离线验证页面，所有资料均为虚构，不会产生投递。</p><form id="application">
+<section data-resume-section="基本信息"><h2>基本信息</h2>
+<div class="form-item"><label for="name">姓名</label><input id="name" name="full_name"></div>
+<div class="form-item"><label for="email">邮箱</label><input id="email" type="email"></div>
+<div class="form-item"><label for="existing">已填电话</label><input id="existing" value="already entered"></div>
+<div class="form-item"><label for="degree">最高学历</label><select id="degree"><option value="">请选择</option value="b">本科</option><option value="m">硕士</option><option value="d">博士</option></select></div>
+<div class="form-item"><label for="dob">出生日期</label><input id="dob" type="date"></div>
+<div class="form-item"><label for="month">毕业月份</label><input id="month" type="month"></div>
+<fieldset><legend>性别</legend><label><input type="radio" name="gender" value="male">男</label><label><input type="radio" name="gender" value="female">女</label></fieldset>
+<fieldset><legend>技能多选</legend><label><input type="checkbox" name="skills" value="interview">访谈</label><label><input type="checkbox" name="skills" value="stats">统计</label><label><input type="checkbox" name="skills" value="law">法律</label></fieldset>
+<div class="form-item"><label for="multiple">语言多选</label><select id="multiple" multiple><option value="en">英语</option><option value="zh">中文</option><option value="ja">日语</option></select></div>
+<div class="form-item"><label for="city">意向城市（自定义下拉）</label><div data-resume-control><input id="city" role="combobox" aria-controls="cities" readonly><div id="cities" role="listbox" class="popup" hidden><div role="option" data-value="上海">上海</div><div role="option" data-value="杭州">杭州</div><div role="option" data-value="北京">北京</div></div></div></div>
+<div class="form-item"><label for="location">家庭住址（级联）</label><div data-resume-control><input id="location" role="combobox" aria-controls="locations" readonly><div id="locations" role="listbox" class="popup" hidden></div></div></div>
+<div class="form-item"><label for="calendar">入学日期（日期控件）</label><div data-resume-control><input id="calendar" role="combobox" aria-controls="calendarPopup" readonly><div id="calendarPopup" role="dialog" class="popup" hidden><div role="gridcell" data-date="2024-09-01">2024-09-01</div><div role="gridcell" data-date="2024-09-02">2024-09-02</div></div></div></div>
+<div class="form-item"><label for="file">简历附件</label><input id="file" type="file" accept=".pdf"></div>
+<div class="form-item"><label for="intro">自我介绍</label><textarea id="intro" maxlength="200"></textarea></div>
+<div class="form-item"><label for="rich">补充描述</label><div id="rich" role="textbox" contenteditable="true"></div></div>
+<div class="form-item"><label for="private">身份证号</label><input id="private"></div>
+<div class="form-item"><label for="password">密码</label><input id="password" type="password"></div>
+<div class="form-item"><label for="code">验证码</label><input id="code"></div>
+<label><input id="consent" type="checkbox">我同意隐私政策及真实性声明</label>
+</section>
+<section data-resume-section="教育经历"><h2>教育经历</h2><div id="records"><div class="education-item" data-resume-record><h3>教育经历 1</h3><div class="form-item"><label>学校名称<input name="school"></label></div><div class="form-item"><label>专业名称<input name="major"></label></div></div></div><button type="button" id="addEducation">添加教育经历</button></section>
+<button id="submit" type="submit">提交申请</button></form><script>
+window.submits=0;document.querySelector('form').onsubmit=e=>{e.preventDefault();window.submits++;};
+window.inputs=0;document.addEventListener('input',()=>window.inputs++);
+document.querySelector('#addEducation').onclick=()=>{const first=document.querySelector('.education-item');const clone=first.cloneNode(true);clone.querySelector('h3').textContent='教育经历 2';clone.querySelectorAll('input').forEach(x=>x.value='');document.querySelector('#records').append(clone);};
+const cities=document.querySelector('#cities'),city=document.querySelector('#city');city.onclick=e=>{e.stopPropagation();cities.hidden=false;};cities.onclick=e=>{if(e.target.matches('[role=option]')){city.value=e.target.dataset.value;cities.hidden=true;}};
+const locations=document.querySelector('#locations'),locationInput=document.querySelector('#location');locationInput.onclick=e=>{e.stopPropagation();locations.innerHTML='<div role="option">中国</div><div role="option">美国</div>';locations.hidden=false;};locations.onclick=e=>{if(e.target.textContent==='中国'){locations.innerHTML='<div role="option">上海</div><div role="option">北京</div>';}else if(e.target.textContent==='上海'){locations.innerHTML='<div role="option">闵行区</div><div role="option">徐汇区</div>';}else{locationInput.value='中国/上海/'+e.target.textContent;locations.hidden=true;}};
+const calendar=document.querySelector('#calendar'),calendarPopup=document.querySelector('#calendarPopup');calendar.onclick=e=>{e.stopPropagation();calendarPopup.hidden=false;};calendarPopup.onclick=e=>{if(e.target.dataset.date){calendar.value=e.target.dataset.date;calendarPopup.hidden=true;}};
+</script></body></html>

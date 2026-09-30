@@ -1,0 +1,25 @@
+const {chromium,browserOptions}=require('./browser-runtime.cjs'),assert=require('node:assert/strict');
+const {fixture}=require('./51job.cjs');
+(async()=>{const b=await chromium.launch({headless:true,...browserOptions});try{
+ const p=await b.newPage();await fixture(p,'approved-date');
+ await p.evaluate(()=>__resumeAutofill.start({draftsOnly:true}));
+ assert.equal(await p.evaluate(()=>draftBackup.phase),'checkpoint');
+ await p.fill('form input[data-key="开始时间"]','2021-09-01');
+ await p.evaluate(()=>__resumeAutofill.start({draftsOnly:true}));
+ assert.equal(await p.inputValue('form input[data-key="开始时间"]'),'2021-09-01');
+ assert.equal(await p.evaluate(()=>draftBackup.records[0].fields.find(f=>f.label==='开始时间').value),'2021-09-01');
+ await p.evaluate(()=>{const form=document.querySelector('form');form.parentElement.previousElementSibling.style.display='';form.parentElement.remove();});
+ await p.evaluate(()=>__resumeAutofill.start({draftsOnly:true}));
+ assert.equal(await p.locator('form').count(),0);
+ await p.evaluate(()=>__resumeAutofill.recoverDrafts());
+ assert.equal(await p.inputValue('form input[data-key="开始时间"]'),'2021-09-01');
+ assert(!await p.evaluate(()=>window.draftBackup));
+ assert(!await p.evaluate(()=>events.some(e=>e[0]==='save')));
+ console.log('PASS checkpoint preserves newer manual edits and recovers discarded draft');await p.close();
+ const q=await b.newPage();await fixture(q,'auto-save-fail');
+ await q.evaluate(()=>{document.querySelector('form .btn-save').onclick=()=>{const toast=document.createElement('div');toast.className='el-message el-message--error';toast.textContent='服务器未接受保存，请稍后重试';document.body.append(toast);setTimeout(()=>toast.remove(),80);};});
+ await q.evaluate(()=>__resumeAutofill.start({expandRecords:false,autoSaveOpenDrafts:true}));
+ assert(await q.evaluate(()=>__resumeAutofill.getReport().some(r=>r.reason.includes('服务器未接受保存'))));
+ assert.equal(await q.evaluate(()=>draftBackup.phase),'checkpoint');
+ console.log('PASS transient save error retained in report and draft checkpoint');await q.close();
+}finally{await b.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

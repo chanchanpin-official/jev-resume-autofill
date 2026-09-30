@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "简历填空 · Jev + 生成模型",
+  "version": "0.2.0",
+  "description": "点击后由 Jev 匹配个人资料，生成模型 补充有依据的回答，自动填写当前申请页面。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "查看简历填写进度",
+    "default_popup": "status.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "capture-resume-structure": {
+      "suggested_key": {"default": "Alt+Shift+D"},
+      "description": "仅记录当前页面结构，不启动填写"
+    },
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+F"
+      },
+      "description": "填写当前申请页面"
+    }
+  }
+}
