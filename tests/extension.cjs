@@ -33,7 +33,21 @@ const ROOT=path.resolve(__dirname,'..');
  fs.writeFileSync(path.join(extension,'local-config.js'),'globalThis.LOCAL_CONFIG='+JSON.stringify({baseUrl:base,token:'test-local-token'})+';');
  let context;
  try{
-  context=await chromium.launchPersistentContext(path.join(temp,'profile'),{headless:true,...browserOptions,ignoreDefaultArgs:['--disable-extensions'],args:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+  const cdpLoader=!process.env.TEST_BROWSER_PATH||process.env.TEST_EXTENSION_LOADER==='cdp';
+  context=await chromium.launchPersistentContext(path.join(temp,'profile'),{headless:true,...browserOptions,ignoreDefaultArgs:['--disable-extensions'],args:cdpLoader?['--enable-unsafe-extension-debugging']:['--disable-extensions-except='+extension,'--load-extension='+extension]});
+  if(cdpLoader){
+    // Match first-time manual installation: developer mode must be enabled.
+    // Debug loaders bypass this check on initial load, but reload enforces it.
+    const manager=await context.newPage();await manager.goto('chrome://extensions/');
+    const developerToggle=manager.locator('#devMode');
+    if(!await developerToggle.evaluate(el=>el.checked))await developerToggle.click();
+    assert(await developerToggle.evaluate(el=>el.checked),'Developer mode must be enabled in the isolated test profile');
+    await manager.close();
+    // Use the browser unpacked-extension loader in the isolated test profile.
+    const session=await context.browser().newBrowserCDPSession();
+    await session.send('Extensions.loadUnpacked',{path:extension});
+    await session.detach();
+  }
   let worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker',{timeout:20000});
   const page=await context.newPage();await page.goto(base+'/fixture');
   // Optional permission stands in for the toolbar's activeTab user gesture in this test.
@@ -85,6 +99,11 @@ const ROOT=path.resolve(__dirname,'..');
     if(!workerReady)await page.waitForTimeout(100);
   }
   if(!workerReady)console.error('Reload diagnostic:',{workers:context.serviceWorkers().map(w=>w.url()),lastReloadError});
+  if(!workerReady){
+    const diagnostic=await context.newPage();await diagnostic.goto('chrome://extensions/');
+    console.error('Extension state:',await diagnostic.evaluate(()=>new Promise(resolve=>chrome.developerPrivate.getExtensionsInfo({includeDisabled:true,includeTerminated:true},items=>resolve(items.map(x=>({id:x.id,state:x.state,disableReasons:x.disableReasons,manifestErrors:x.manifestErrors?.map(e=>e.message),runtimeErrors:x.runtimeErrors?.map(e=>e.message)})))))));
+    await diagnostic.close();
+  }
   await wakeup.close();assert(workerReady,'Reload must start a fresh service worker execution context');
   assert.deepEqual((await draftTransfer({kind:'draft-backup',action:'read'})).data.backup,localBackup);
   await backupPage.goto('https://xyz.51job.com/consumer/pc/resume/index?fixture=other');assert.equal((await draftTransfer({kind:'draft-backup',action:'read'})).data.backup,null);
@@ -120,6 +139,6 @@ const ROOT=path.resolve(__dirname,'..');
   assert.equal(await popup.locator('#stop').isDisabled(),true);
   assert.equal(await popup.locator('#retry').isDisabled(),false);
   await popup.screenshot({path:path.join(ROOT,'test-results/status-popup.png')});
-  console.log('PASS: unpacked MV3 extension loads in real Edge; service worker, injection, authenticated HTTP bridge, jobs, dropdown selection, options page, no submit/consent.');
+  console.log('PASS: unpacked MV3 extension loads in a real Chromium browser; service worker, injection, authenticated HTTP bridge, jobs, dropdown selection, options page, no submit/consent.');
  }finally{if(context)await context.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
