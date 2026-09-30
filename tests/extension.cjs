@@ -130,10 +130,11 @@ const ROOT=path.resolve(__dirname,'..');
   fs.mkdirSync(path.join(ROOT,'test-results'),{recursive:true});
   await options.screenshot({path:path.join(ROOT,'test-results/options.png'),fullPage:true});
   const popup=await context.newPage();await popup.goto('chrome-extension://'+extensionId+'/status.html');
-  await worker.evaluate(async url=>{
-    const tabs=await chrome.tabs.query({});const tab=tabs.find(t=>t.url===url);
+  await worker.evaluate(async ()=>{
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    if(!tab?.id)throw Error('No active tab for status fixture');
     await chrome.storage.session.set({['report-'+tab.id]:{running:false,version:'0.2.0',total:20,completed:8,ready:0,started_at:Date.now()-12000,finished_at:Date.now(),progress:'本轮已停止，可重试待处理',current_field:'',items:[],analysis:{tasks:{}}}});
-  },'chrome-extension://'+extensionId+'/status.html');
+  });
   await popup.waitForFunction(()=>document.querySelector('#fraction').textContent.includes('8 / 20'));
   assert.equal(await popup.locator('#progress').getAttribute('value'),'8');
   assert.equal(await popup.locator('#stop').isDisabled(),true);
