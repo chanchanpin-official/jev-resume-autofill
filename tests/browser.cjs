@@ -19,7 +19,7 @@ const out=path.join(ROOT,'test-results');fs.mkdirSync(out,{recursive:true});
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.evaluate(()=>{
       window.testJobs={};window.testRequests=[];window.batchProgress=[];
-      const values={'姓名':'Demo Applicant','邮箱':'demo@example.invalid','最高学历':'硕士','出生日期':'2000-12-26','毕业月份':'2027-01','性别':'男','技能多选':'访谈、统计','语言多选':'英语、中文','意向城市（自定义下拉）':'上海','家庭住址（级联）':'中国/上海/闵行区','入学日期（日期控件）':'2024-09','自我介绍':'I conduct user research.','补充描述':'Grounded description.','身份证号':'110101199001010011'};
+      const values={'姓名':'Demo Applicant','邮箱':'demo@example.invalid','最高学历':'硕士','出生日期':'2000-12-26','毕业月份':'2027-01','性别':'男','技能多选':'访谈、统计','语言多选':'英语、中文','意向城市（自定义下拉）':'上海','家庭住址（级联）':'中国/上海/闵行区','入学日期（日期控件）':'2024-09','自我介绍':'I conduct user research.','补充描述':'Grounded description.','身份证号':'000000000000000000'};
       window.chrome={runtime:{onMessage:{addListener(){}},async sendMessage(msg){
         window.testRequests.push(msg);
         if(msg.kind==='create-job'){
@@ -54,7 +54,7 @@ const out=path.join(ROOT,'test-results');fs.mkdirSync(out,{recursive:true});
       kinds:window.testRequests.filter(r=>r.kind==='create-job').map(r=>r.payload.mode),
       batchSizes:window.testRequests.filter(r=>r.kind==='create-job'&&r.payload.mode==='fields').map(r=>r.payload.fields.length),
       batchProgress:window.batchProgress,
-      privateSent:window.testRequests.filter(r=>r.kind==='create-job').some(r=>JSON.stringify(r).includes('110101199001010011'))
+      privateSent:window.testRequests.filter(r=>r.kind==='create-job').some(r=>JSON.stringify(r).includes('000000000000000000'))
     }));
     fs.writeFileSync(path.join(out,'browser-result.json'),JSON.stringify(result,null,2));
     await page.screenshot({path:path.join(out,'fixture-filled.png'),fullPage:true});

@@ -14,6 +14,7 @@ class IndustryPolicyTests(unittest.TestCase):
             {'is_internship':True,'application_policy':{'exclude_industries':['internet']}}]}
 
     def test_counts_and_record_allocation_share_industry_filter(self):
+        self.assertEqual(scoped_records(self.profile,'实习经历',{'application_industry':'unknown'}),['experience_0','experience_1'])
         for section in ['实习经历','工作经历']:
             self.assertEqual(scoped_records(self.profile,section,{'application_industry':'internet'}),['experience_0','experience_1'])
             self.assertEqual(scoped_records(self.profile,section,{'application_industry':'fmcg'}),['experience_0','experience_1','experience_2','experience_3'])

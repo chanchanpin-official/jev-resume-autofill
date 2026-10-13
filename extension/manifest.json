@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "简历填空 · Jev + 生成模型",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "点击后由 Jev 匹配个人资料，生成模型 补充有依据的回答，自动填写当前申请页面。",
   "permissions": [
     "activeTab",

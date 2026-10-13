@@ -147,7 +147,7 @@ def run_job(job_id, payload):
                 result = analyze(fields, PROFILE, high, low, payload.get("page", {}), publish, task_progress, cancelled, record_context=records)
             else:
                 result = engine.decide(fields, payload.get("page", {}), progress, cancelled)
-            if result.get("paused") and payload.get("client_version") not in ("0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0"):
+            if result.get("paused") and payload.get("client_version") not in ("0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0", "0.2.3"):
                 # Older injected scripts do not understand partial paused results.
                 # Return a job error so they stop instead of retrying the same batch.
                 raise ModelServiceError(result["error"])
@@ -228,10 +228,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"ok": True, "profile": ready,
                     "jev_configured": bool(ModelClient.credential("TYPESAFE_API_KEY")),
                     "generator_configured": bool(client.generator_model and (local or ModelClient.credential("LLM_API_KEY"))),
-                    "generator_model": client.generator_model, "generator_protocol": client.protocol, "version": "0.2.0"})
+                    "generator_model": client.generator_model, "generator_protocol": client.protocol, "version": "0.2.3"})
             except Exception:
                 return self.respond(200, {"ok": True, "profile": False, "jev_configured": False,
-                    "generator_configured": False, "config_error": "profile 或本机 API 配置无效，请检查本机文件", "version": "0.2.0"})
+                    "generator_configured": False, "config_error": "profile 或本机 API 配置无效，请检查本机文件", "version": "0.2.3"})
         if path == "/form-support":
             return self.respond(200, get_support(PROFILE))
         if path == "/reports":
@@ -334,7 +334,7 @@ def main():
             request = urllib.request.Request("http://127.0.0.1:%d/health" % PORT, headers={"Authorization": "Bearer " + TOKEN})
             with urllib.request.urlopen(request, timeout=3) as response:
                 existing = json.load(response)
-            if existing.get("version") in ("0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0"):
+            if existing.get("version") in ("0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0", "0.2.3"):
                 print("本机服务已在运行（版本 %s）；代码升级后需结束旧服务再启动。" % existing["version"])
                 return
         except Exception:

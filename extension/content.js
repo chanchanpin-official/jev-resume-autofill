@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = '0.2.0';
+  const VERSION = '0.2.3';
   const reconnect=globalThis.__resumeAutofillReconnect===true;
   delete globalThis.__resumeAutofillReconnect;
   const previous=globalThis.__resumeAutofill;
@@ -10,7 +10,7 @@
   document.getElementById('resume-autofill-panel')?.remove();
   const FIELD_SELECTOR = 'input,textarea,select,[contenteditable="true"],[role="combobox"],[role="textbox"],[role="radio"],[role="checkbox"],.atsx-date-picker-period-month-label,.phoenix-radio-group';
   const WRAPPER = '.ant-form-item,.el-form-item,.ivu-form-item,.atsx-form-item,.semi-form-field,.form-item,.form-group,.form-field,[data-field],fieldset,[class*="apply-field-"]';
-  const RECORD = '[data-resume-record],.education-item,.experience-item,.project-item,.resume-item,[data-record-index],[class*="apply-fields-"][class*="multi-"],.createFormSection-repeatable .resumeEditForm-item';
+  const RECORD = '[data-resume-record],.education-item,.experience-item,.project-item,.resume-item,[data-record-index],[class*="apply-fields-"][class*="multi-"],.createFormSection-repeatable .resumeEditForm-item,.editCVContainer .reSubBlock > .blockContainer';
   const FEISHU_SECTION = '[class*="createFormSection__"],.createFormSection-repeatable';
   const FEISHU_ADD = '.formOperate-addBtn,.createFormSection-addBtn';
   const CUSTOM = '.phoenix-select,.jsb_three_layer_container,.el-autocomplete,[role="combobox"],.ant-select,.el-select,.ivu-select,.atsx-select,.atsx-cascader-picker,.atsx-calendar-picker,.atsx-date-picker,.semi-select,.ant-cascader,.el-cascader,.ant-picker,.el-date-editor,[data-resume-control],[class*="sd-Select-container-"]';
@@ -50,7 +50,9 @@
   }
   function requiredState(el){
     const wrapper=el.closest(WRAPPER),labelNode=wrapper?.querySelector('label,.form-item__title,.atsx-form-item-label,.el-form-item__label');
+    const external=antFieldTitle(el);
     if(el.required||el.getAttribute('aria-required')==='true'||wrapper?.matches('.is-required')||wrapper?.querySelector('.atsx-form-item-required,.ant-form-item-required')||/^\s*\*|\*\s*$/.test(text(labelNode)))return true;
+    if(external)return /^\s*[*＊]|[*＊]\s*$/.test(text(external));
     if(el.getAttribute('aria-required')==='false'||wrapper?.matches('.atsx-form-item,.el-form-item,.form-item--phoenix')&&labelNode)return false;
     return null;
   }
@@ -94,6 +96,18 @@
     return style.visibility !== 'hidden' && style.display !== 'none' && !!el.getClientRects().length;
   }
   function text(el) { return (el?.innerText || el?.textContent || '').replace(/\s+/g,' ').trim(); }
+  function antFieldTitle(el){
+    // Some Ant forms put the caption beside Form.Item, not in a <label>.
+    // Stay inside one layout column so adjacent fields cannot donate labels.
+    const column=el.closest('.ant-col:not(.ant-form-item-control):not(.ant-form-item-label)');
+    const item=column&&[...column.children].find(c=>c.matches('.ant-form-item')&&c.contains(el));
+    const caption=item?.previousElementSibling;
+    return caption&&!caption.matches(FIELD_SELECTOR)&&!caption.querySelector(FIELD_SELECTOR)&&text(caption).length<=400?caption:null;
+  }
+  function customRoot(el){
+    // A nested role=combobox search input is not the whole Ant control.
+    return el.closest('.ant-select,.ant-cascader,.ant-picker')||el.closest(CUSTOM)||el;
+  }
   function label(el) {
     const root = el.getRootNode();
     const labelled = (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean).map(id => text(root.getElementById?.(id))).join(' ');
@@ -106,7 +120,8 @@
     const wrapper = el.closest(WRAPPER);
     const mokaTitle=wrapper?.matches('[class*="apply-field-"]')?text(wrapper.querySelector('[class^="title-"]')):'';
     const local = wrapper?.querySelector('label,legend,.ant-form-item-label,.atsx-form-item-label,.semi-form-field-label,.el-form-item__label,.form-label,.form-item__title,[data-label]');
-    let base=(mokaTitle || labelled || el.getAttribute('aria-label') || labels || text(local) || (el.type==='file'&&el.closest('.uploadResume-section')?'附件简历':'') || el.getAttribute('placeholder') || el.name || el.id || '未命名字段').replace(/^[＊*]\s*/,'').replace(/[＊*：:]\s*$/,'').slice(0,400);
+    let base=(mokaTitle || labelled || el.getAttribute('aria-label') || labels || text(local) || text(antFieldTitle(el)) || (el.type==='file'&&el.closest('.uploadResume-section,.editCVContainer .uploadArea')?'附件简历':'') || (el.type==='file'&&el.closest('.editCVContainer .moduleBlock')?section(el):'') || el.getAttribute('placeholder') || el.name || el.id || '未命名字段').replace(/^[＊*]\s*/,'').replace(/[＊*：:]\s*$/,'').slice(0,400);
+    if(/^证件(?:信息)?$/.test(base)&&el.closest('.ant-input-group-compact'))base=el.closest('.ant-select')?'证件类型':'证件号码';
     if(el.matches('.atsx-date-picker-period-month-label')){
       const index=[...el.parentElement.querySelectorAll('.atsx-date-picker-period-month-label')].indexOf(el);
       return base+' · '+(index===0?'开始 / Start':'结束 / End');
@@ -135,6 +150,12 @@
     return heading?{root,title:text(heading)}:null;
   }
   function section(el) {
+    if(el.closest('.editCVContainer')){
+      const module=el.closest('.moduleBlock');
+      if(module){const heading=[...module.children].find(c=>c.matches('.titles,.title'));if(heading)return text(heading).slice(0,250);}
+      if(el.closest('form.ant-form'))return '基本信息';
+      if(el.closest('.uploadArea'))return '附件简历';
+    }
     const phoenix=phoenixSection(el);if(phoenix)return phoenix.title;
     if(is51job()&&el.closest('.resume-module'))return text(el.closest('.resume-module').querySelector('.resume-module-header .title')).slice(0,250);
     const feishu=el.closest(FEISHU_SECTION);
@@ -151,6 +172,13 @@
     return '';
   }
   function recordInfo(el) {
+    if(el.closest('.editCVContainer')){
+      const row=el.closest('.reSubBlock > .blockContainer');
+      if(!row)return {record_index:null,record_hint:''};
+      const rows=[...row.parentElement.children].filter(c=>c.matches('.blockContainer')&&visible(c));
+      const identities=[...row.querySelectorAll('input')].filter(e=>/^(?:学校(?:名称)?|公司(?:名称)?|项目名称|论文名称|获奖名称|奖项名称|语言|考试类型(?:（最优成绩）)?)$/.test(label(e))).map(e=>currentValue(e)?label(e)+'='+currentValue(e):'').filter(Boolean);
+      return {record_index:rows.indexOf(row),record_hint:identities.join('; ').slice(0,500)};
+    }
     const phoenix=phoenixSection(el);
     if(phoenix){
       if(!/经历|论文|专著|获奖|附加信息/.test(phoenix.title))return {record_index:null,record_hint:''};
@@ -220,7 +248,12 @@
       const selected = el.selectedOptions[0];
       return !selected || selected.disabled || /^(请选择|please select|select(?: an? option)?|选择|--)/i.test(text(selected)) ? '' : el.value;
     }
-    const custom=el.closest(CUSTOM);
+    const custom=customRoot(el);
+    if(custom.matches('.ant-select')){
+      const selected=[...custom.querySelectorAll('.ant-select-selection-item')].map(e=>text(e.querySelector('.ant-select-selection-item-content')||e)).filter(Boolean);
+      // Uncommitted search text must never count as a selected answer.
+      return selected.join('; ');
+    }
     // Element UI multiple Select stores answers in tags, while its input stays
     // empty (or contains a search query). Read committed labels before input.
     const tags=custom?.matches('.el-select')?custom.querySelector('.el-select__tags'):null;
@@ -309,6 +342,7 @@
       const f={id,label:label(el),name:el.name||'',placeholder:el.getAttribute('placeholder')||'',section:section(el),type:kind,required:requiredState(el),
         autocomplete:el.autocomplete||'',max_length:el.maxLength>0 ? el.maxLength:null,format:el.matches('.atsx-date-picker-period-month-label')?'YYYY-MM':el.getAttribute('data-format')||el.closest('.el-date-editor')?.getAttribute('data-resume-date-format')||el.getAttribute('placeholder')||'',...info};
       if(/^(如果|若|如有|if\b)/i.test(f.label))f.preceding_labels=precedingQuestionLabels(el);
+      if(el.closest('.editCVContainer .ant-picker')){f.format='YYYY-MM-DD';f.date_endpoint=/结束|毕业|end|graduation/i.test(f.label)?'end':/开始|入学|start|enrol/i.test(f.label)?'start':'';}
       if(el.matches('.atsx-date-picker-period-month-label'))f.date_endpoint=[...el.parentElement.querySelectorAll('.atsx-date-picker-period-month-label')].indexOf(el)===0?'start':'end';
       if (kind==='radio' || kind==='checkbox') {
         const group=el.closest('[role="radiogroup"],fieldset,'+WRAPPER) || el.parentElement;
@@ -358,7 +392,7 @@
     const job = document.querySelector('[data-job-description],.job-description,.job-detail,.position-description,.jobDetail-description,.job-form__title');
     const params=new URLSearchParams(location.search),tenant=params.get('ctmid')||'';
     const publicJob=publicJobContext?.path===location.pathname?publicJobContext:null;
-    return {host:location.hostname,path:location.pathname,title:publicJob?.title||document.title,employer:text(document.querySelector('[data-company-name],.company-name,.company-info__name')).slice(0,300),tenant_id:is51job()&&/^\d{1,20}$/.test(tenant)?tenant:'',form_language:params.get('p_lang')||document.documentElement.lang||navigator.language,job_context:publicJob?.text||(job ? text(job).slice(0,6000):''),sections:queryAll('[data-resume-section],[class*="blockTitle-"] [class*="text-"],.createFormSection-text,.resume-module-header .title,[class*="STFrom-editor"] .sc-iAKWXU > .sc-efQSVx,h2,legend').map(text).slice(0,40)};
+    return {host:location.hostname,path:location.pathname,title:publicJob?.title||document.title,employer:text(document.querySelector('[data-company-name],.company-name,.company-info__name')).slice(0,300),tenant_id:is51job()&&/^\d{1,20}$/.test(tenant)?tenant:'',form_language:params.get('p_lang')||(document.querySelector('.editCVContainer')&&/[\u3400-\u9fff]/.test(queryAll('.editCVContainer .moduleBlock > .titles,.editCVContainer .moduleBlock > .title').map(text).join(' '))?'zh-CN':document.documentElement.lang||navigator.language),job_context:publicJob?.text||(job ? text(job).slice(0,6000):''),sections:queryAll('[data-resume-section],[class*="blockTitle-"] [class*="text-"],.createFormSection-text,.resume-module-header .title,.editCVContainer .moduleBlock > .titles,.editCVContainer .moduleBlock > .title,[class*="STFrom-editor"] .sc-iAKWXU > .sc-efQSVx,h2,legend').map(text).slice(0,40)};
   }
   async function message(kind, extra={}) {
     let response;
@@ -410,7 +444,7 @@
     panel.id='resume-autofill-panel';
     panel.style.cssText='position:fixed;right:20px;bottom:20px;width:350px;z-index:2147483647;color-scheme:light;';
     panelRoot=panel.attachShadow({mode:'closed'});
-    panelRoot.innerHTML=`<style>:host{all:initial}*{box-sizing:border-box}section{font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#273e35;background:#fafbf7;border:1px solid #d9e2d5;border-radius:14px;box-shadow:0 12px 50px #16372830;overflow:hidden}header{padding:15px 18px;background:#eaf0e5;display:flex;justify-content:space-between;align-items:center}h2{font-size:15px;margin:0}small{font-size:10px;color:#68816f;letter-spacing:1px}main{padding:14px 18px}p{margin:0 0 10px}#summary{font-weight:650}#log{max-height:230px;overflow:auto;font-size:12px}.row{padding:9px 0;border-top:1px solid #e7ece1}.row strong{display:block}.reason{color:#708073}.review strong,.error strong{color:#9b661c}.filled strong{color:#2c6958}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:5px;padding:7px 10px;background:#2c6958;color:white;font:inherit;cursor:pointer}button.secondary{background:#e9eee4;color:#3b604a}#close{background:transparent;color:#3b604a;padding:0 5px;font-size:19px}#status{color:#5c7262}details{margin-top:10px}summary{cursor:pointer;color:#667b69}.foot{font-size:11px;color:#778671;margin-top:12px}</style><section><header><div><small>JEV + LLM</small><h2>简历填空 0.2.0${window.top!==window?' · 嵌入页面':''}</h2></div><button id="close" title="收起">×</button></header><main><p id="status">准备读取页面</p><p id="summary"></p><progress id="progress" max="1" value="0" style="width:100%;accent-color:#2c6958"></progress><p id="activity" aria-live="polite"></p><div id="log"></div><div class="actions"><button id="stop">停止</button><button id="retry" class="secondary">重试待处理</button><button id="undo" class="secondary">撤销本次填写</button><button id="drafts" class="secondary">仅补空白</button><button id="recover" class="secondary">恢复草稿</button><button id="settings" class="secondary">设置</button></div><p class="foot">绿色为已填；黄色为待审阅。附件上传、提交和声明由你完成。</p></main></section>`;
+    panelRoot.innerHTML=`<style>:host{all:initial}*{box-sizing:border-box}section{font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#273e35;background:#fafbf7;border:1px solid #d9e2d5;border-radius:14px;box-shadow:0 12px 50px #16372830;overflow:hidden}header{padding:15px 18px;background:#eaf0e5;display:flex;justify-content:space-between;align-items:center}h2{font-size:15px;margin:0}small{font-size:10px;color:#68816f;letter-spacing:1px}main{padding:14px 18px}p{margin:0 0 10px}#summary{font-weight:650}#log{max-height:230px;overflow:auto;font-size:12px}.row{padding:9px 0;border-top:1px solid #e7ece1}.row strong{display:block}.reason{color:#708073}.review strong,.error strong{color:#9b661c}.filled strong{color:#2c6958}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:5px;padding:7px 10px;background:#2c6958;color:white;font:inherit;cursor:pointer}button.secondary{background:#e9eee4;color:#3b604a}#close{background:transparent;color:#3b604a;padding:0 5px;font-size:19px}#status{color:#5c7262}details{margin-top:10px}summary{cursor:pointer;color:#667b69}.foot{font-size:11px;color:#778671;margin-top:12px}</style><section><header><div><small>JEV + LLM</small><h2>简历填空 0.2.3${window.top!==window?' · 嵌入页面':''}</h2></div><button id="close" title="收起">×</button></header><main><p id="status">准备读取页面</p><p id="summary"></p><progress id="progress" max="1" value="0" style="width:100%;accent-color:#2c6958"></progress><p id="activity" aria-live="polite"></p><div id="log"></div><div class="actions"><button id="stop">停止</button><button id="retry" class="secondary">重试待处理</button><button id="undo" class="secondary">撤销本次填写</button><button id="drafts" class="secondary">仅补空白</button><button id="recover" class="secondary">恢复草稿</button><button id="settings" class="secondary">设置</button></div><p class="foot">绿色为已填；黄色为待审阅。附件上传、提交和声明由你完成。</p></main></section>`;
     document.documentElement.append(panel);
     panelRoot.getElementById('close').onclick=()=>{panel.style.display='none';};
     panelRoot.getElementById('stop').onclick=stop;
@@ -563,7 +597,7 @@
     if(!currentValue(selected.el))throw new Error('页面未接受单选/多选');
   }
   function popupRoots(el,before) {
-    const own=[el.getAttribute('aria-controls'),el.getAttribute('aria-owns'),el.closest('[aria-controls]')?.getAttribute('aria-controls'),el.closest('[aria-owns]')?.getAttribute('aria-owns')].filter(Boolean).join(' ').split(/\s+/).filter(Boolean).map(id=>el.getRootNode().getElementById?.(id)).filter(e=>e?.matches(PANEL)&&visible(e));
+    const own=[el.getAttribute('aria-controls'),el.getAttribute('aria-owns'),el.closest('[aria-controls]')?.getAttribute('aria-controls'),el.closest('[aria-owns]')?.getAttribute('aria-owns')].filter(Boolean).join(' ').split(/\s+/).filter(Boolean).map(id=>el.getRootNode().getElementById?.(id)).map(e=>e?.closest('.ant-select-dropdown')||e).filter(e=>e?.matches(PANEL)&&visible(e));
     if(own.length)return own;
     const local=el.closest('[class*="sd-Dropdown-container-"]');
     const nearby=local?[...local.querySelectorAll(PANEL)].filter(visible):[];
@@ -640,17 +674,17 @@
     }
     if(el.matches('.atsx-date-picker-period-month-label'))return fillFeishuPeriod(el,f,value);
     if(el.closest('.el-date-editor'))return fillElementDate(el,f,value);
+    if(el.closest('.ant-picker')&&await fillAntDate(el,f,value))return;
     // The captured Phoenix date control is a read-only select search input.
     // Its calendar is not yet verified: never type a date into its search box
     // or spend eighteen generic-dropdown iterations guessing navigation.
     if(el.closest('.phoenix-select')&&/时间|日期|年月|date|period/i.test(f.label))throw Object.assign(new Error('北森年月控件尚未验证自动选择，请手动选择本条日期；已保留其他内容'),{review:true,issue_kind:'unsupported_control'});
     saveSnapshot(el);
     const before=new Set(queryAll(PANEL).filter(visible));
-    let trigger=el.closest(CUSTOM)||el;
+    let trigger=customRoot(el);
     // Clicking a label also forwards a second click to its input, which can
     // immediately close a Moka dropdown. Activate its actual input only once.
-    if(el.closest('.phoenix-select')){assertUserUntouched();el.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,composed:true,button:0}));}
-    safeClick(el);await sleep(220);
+    openCustom(el);await sleep(220);
     const moka=trigger.matches('[class*="sd-Select-container-"]');
     const autocomplete=moka&&el.closest('[class*="string_info-"]');
     const companyAutocomplete=el.closest('.el-autocomplete')&&/公司|单位|company|employer/i.test(f.label);
@@ -659,7 +693,7 @@
     const searchAliases=[...new Set(companyNames.flatMap(v=>[v,v.toUpperCase(),v.replace(/(?:股份有限公司|有限责任公司|有限公司|集团|科技)$/u,'')]).filter(v=>v.length>=2&&v!==value))].slice(0,8);
     let searchIndex=0;
     let searched=false;
-    if(el.tagName==='INPUT'&&!el.readOnly&&!el.closest('.atsx-date-picker,.jsb_three_layer_container,.phoenix-select')&&(!moka||autocomplete)){
+    if(el.tagName==='INPUT'&&!el.readOnly&&!el.closest('.atsx-date-picker,.ant-picker,.jsb_three_layer_container,.phoenix-select')&&(!moka||autocomplete)){
       if(el.closest('.el-autocomplete')&&document.activeElement===el)el.blur();
       el.focus();nativeSet(el,value,false);searched=true;if(companyAutocomplete)f.pending_company_query=value;
     }
@@ -667,7 +701,7 @@
     for(let step=0;step<18;step++){
       if(cancelled)throw new Error('已停止');
       el=resolveField(f,el);if(!el)throw new Error('字段身份已变化，无法沿用判断');
-      trigger=el.closest(CUSTOM)||el;
+      trigger=customRoot(el);
       const {roots,entries:visibleOptions}=await waitControl(el,before,true);
       if(companyAutocomplete&&!visibleOptions.length&&searchIndex<searchAliases.length){
         // A dictionary may list the known group/brand instead of the unit name.
@@ -693,8 +727,8 @@
       const result=await choose(f,value,entries,{trail,step,panel_headings:roots.map(r=>text(r.querySelector('header,.ant-picker-header,.el-date-picker__header,.atsx-date-picker-panel-header'))).join(' ')});
       let selected=chosen(entries,result);
       el=resolveField(f,el);if(!el)throw new Error('字段身份已变化，无法沿用判断');
-      trigger=el.closest(CUSTOM)||el;
-      if(!popupRoots(el,before).length){safeClick(el);await sleep(200);}
+      trigger=customRoot(el);
+      if(!popupRoots(el,before).length){openCustom(el);await sleep(200);}
       const fresh=await waitControl(el,before,true);
       const sameOptions=fresh.entries.map(e=>e.label).sort().join('\u0000')===entries.map(e=>e.label).sort().join('\u0000');
       const matches=fresh.entries.filter(e=>e.label===selected.label);
@@ -704,7 +738,7 @@
       selected=matches[0];
       safeClick(selected.el);trail.push(selected.label);await sleep(300);
       el=resolveField(f,el);if(!el)throw new Error('选择后字段身份已变化，请检查');
-      trigger=el.closest(CUSTOM)||el;
+      trigger=customRoot(el);
       const accepted=currentValue(el)||currentValue(trigger);
       if(accepted===selected.label){el.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));el.blur?.();return;}
       if(!popupRoots(el,before).length){
@@ -719,6 +753,45 @@
       }
     }
     throw new Error('控件达到尝试上限，需手动检查');
+  }
+  function openCustom(el){
+    assertUserUntouched();
+    const ant=el.closest('.ant-select');
+    const target=ant?.querySelector('.ant-select-selector')||el;
+    if(ant||el.closest('.phoenix-select,.ant-picker')){
+      target.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,composed:true,button:0}));
+      target.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,composed:true,button:0}));
+    }
+    if(el.closest('.ant-picker'))el.focus();
+    safeClick(target);
+  }
+  async function fillAntDate(el,f,value){
+    // rc-picker treats typed text as a draft until Enter commits it. A visible
+    // string alone is not proof that React's form value has changed.
+    const before=new Set(queryAll(PANEL).filter(visible)),original=el.value;
+    openCustom(el);await sleep(150);
+    const roots=popupRoots(el,before);
+    if(!roots.some(r=>r.querySelector('.ant-picker-date-panel,.ant-picker-month-panel')))return false;
+    if(/^(Present|至今)$/i.test(value)){
+      const present=visibleEntries(roots).filter(e=>/^(Present|至今)$/i.test(e.label));
+      if(present.length===1){safeClick(present[0].el);await sleep(150);return /^(Present|至今)$/i.test(currentValue(el));}
+      el.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));el.blur();
+      throw Object.assign(new Error('本条项目仍在进行，但网页日期框没有“至今”；需要本人指定填表截止日，不能当作已结束'),{review:true,issue_kind:'present_date_required'});
+    }
+    if(el.readOnly)return false;
+    const target=roots.some(r=>r.querySelector('.ant-picker-date-panel'))?dateWithDefaultDay(value,f):value;
+    if(!/^\d{4}-\d{2}(?:-\d{2})?$/.test(target))return false;
+    saveSnapshot(el);nativeSet(el,target,false);await sleep(80);
+    el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}));
+    el.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}));
+    await sleep(150);
+    const closed=!popupRoots(el,before).length;
+    el.blur();await sleep(100);
+    if(closed&&currentValue(el)===target)return true;
+    // Restore the uncommitted draft before calendar selection / a future retry.
+    assertUserUntouched();nativeSet(el,original,false);
+    el.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));el.blur();
+    return false;
   }
   async function fillElementDate(el,f,value){
     await message('control-metadata').catch(()=>{});
@@ -884,10 +957,11 @@
     const buttons=queryAll('button,[role="button"],a,'+FEISHU_ADD).filter(b=>visible(b)&&(b.matches(FEISHU_ADD)||/^(\+\s*)?(添加|新增|增加|add)\s*(教育|工作|实习|项目|校园|education|work|experience|project)/i.test(text(b))||(/^添加\s*\/\s*Add$/i.test(text(b))&&b.closest('[class*="apply-block-"]')))&&!UNSAFE.test(text(b)));
     for(const button of buttons){
       if(cancelled)return;
-      const container=button.closest(FEISHU_SECTION)||button.closest('[data-resume-section],section,.resume-section,.form-section,.ant-card,[class*="apply-block-"]')||button.parentElement;
+      const container=button.closest(FEISHU_SECTION)||button.closest('[data-resume-section],section,.resume-section,.form-section,.ant-card,[class*="apply-block-"],.editCVContainer .moduleBlock')||button.parentElement;
       if(handled.has(container))continue;handled.add(container);
-      const records=()=>[...container.querySelectorAll(RECORD)].filter(visible);
-      if(!records().length&&!container.matches('.createFormSection-repeatable')){addReport({label:text(button)},'review','发现新增经历按钮，但无法可靠计数，需手动展开');continue;}
+      const ant=container.matches('.editCVContainer .moduleBlock');
+      const records=()=>[...container.querySelectorAll(ant?'.reSubBlock > .blockContainer':RECORD)].filter(visible);
+      if(!records().length&&!container.matches('.createFormSection-repeatable')&&!(ant&&container.querySelector('.reSubBlock'))){addReport({label:text(button)},'review','发现新增经历按钮，但无法可靠计数，需手动展开');continue;}
       const projectRows=container.matches(FEISHU_SECTION)&&/^项目经历$/.test(section(button))?records():[];
       const captureProject=row=>({hint:recordInfo(row.querySelector(FIELD_SELECTOR)).record_hint,
         fields:[...row.querySelectorAll(FIELD_SELECTOR)].filter(e=>visible(e)&&e.type!=='file').map(e=>({label:label(e),type:e.type||e.getAttribute('role')||'',value:currentValue(e)}))});

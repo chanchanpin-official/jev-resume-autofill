@@ -10,6 +10,9 @@ PATTERNS = {
     'secret-shaped token': re.compile(r'(?:sk-(?:proj-|ant-)?|gh[pousr]_|AIza)[A-Za-z0-9_-]{20,}'),
     'personal machine path': re.compile(r'/' + r'Users/[^/\s]+|[A-Z]:\\Users\\[^\\\s]+|' + r'One' + r'Drive-'),
     'private email': re.compile(r'[\w.+-]+@(?!(?:example\.(?:invalid|test|com)|[^\s@]+\.invalid)\b)[\w.-]+\.[A-Za-z]{2,}'),
+    'mobile number shape': re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)'),
+    # All-zero numeric fixtures are intentionally invalid and safe for redaction tests.
+    'identity number shape': re.compile(r'(?<!\d)[1-9]\d{16}[\dXx](?!\d)'),
 }
 PRIVATE_PARTS = {'.runtime', 'node_modules', 'test-results', 'dist', '__pycache__', '.git'}
 

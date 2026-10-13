@@ -21,4 +21,6 @@ npm run package
 
 公开前执行 `python3 -B scripts/audit_public.py --tracked`。个人专项检查可提供仓库外的本机 JSON 字符串数组：`--deny-file <私有文件路径>`，检查只输出文件名与类别，不输出匹配值。自动扫描只是检查的一部分，还需核对差异和包中文件。
 
+教学 profile 只放在 `docs/examples/profile.synthetic.json`，内容必须完全虚构；真实资料始终放在被忽略的 `profile/`。发布检查会拒绝疑似真实手机号和证件号形态；需要测试数字脱敏时使用故意无效的全零数字。示例须通过 `skills/jev-profile/scripts/validate_profile.py` 校验，默认 `profile/profile.example.json` 保持 `{}`。历史版本与发布附件须单独检查，见 [隐私复核说明](docs/PRIVACY-REVIEW.md)。
+
 不得提交 `.runtime/`、个人 `profile/`、`extension/local-config.js`、真实网页 HTML、日志、草稿或截图。打包脚本仅收集源码白名单；新增文件需要同时检查 Git 跟踪与打包规则。漏洞报告见 [SECURITY](SECURITY.md)。

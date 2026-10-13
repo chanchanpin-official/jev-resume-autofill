@@ -1,7 +1,7 @@
 /* Model keys stay in the bridge. Temporary form drafts are local-only recovery data. */
 try { importScripts('local-config.js'); } catch { /* configure in options */ }
 const DEFAULTS = {high: 0.85, low: 0.60, overwrite: false, expandRecords: true, autoSaveOpenDrafts: true, maxRunSeconds:180};
-const VERSION = '0.2.0';
+const VERSION = '0.2.3';
 function stableJson(value){
   if(Array.isArray(value))return value.map(stableJson);
   if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,stableJson(value[k])]));
@@ -78,6 +78,7 @@ async function startTab(tab,retry=false,draftsOnly=false) {
 chrome.action.onClicked.addListener(tab=>startTab(tab).catch(()=>{}));
 async function diagnoseTab(tab){
   if(!tab?.id||!/^https?:/.test(tab.url||''))throw new Error('请先打开申请网页');
+  await ensurePageContent(tab); // Refresh the scanner without starting a fill.
   await chrome.scripting.executeScript({target:{tabId:tab.id},world:'MAIN',files:['control-metadata.js']});
   const captures=await chrome.scripting.executeScript({target:{tabId:tab.id},files:['diagnostics.js']});
   return bridge('/diagnostics',captures[0].result);

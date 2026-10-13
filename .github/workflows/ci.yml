@@ -21,4 +21,5 @@ jobs:
       - run: npm test
       - run: npm run test:widgets
       - run: python3 -B scripts/audit_public.py --tracked
+      - run: python3 -B skills/jev-profile/scripts/validate_profile.py docs/examples/profile.synthetic.json --require-facts
       - run: npm run package

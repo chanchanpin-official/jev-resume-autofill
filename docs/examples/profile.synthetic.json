@@ -1,0 +1,72 @@
+{
+  "person": {
+    "name_zh": "示例同学（虚构）",
+    "name_en": "Example Applicant (Fictional)",
+    "email": "applicant@example.invalid"
+  },
+  "education": [
+    {
+      "id": "example-education-01",
+      "school_zh": "示例大学（虚构）",
+      "school_en": "Example University (Fictional)",
+      "major_zh": "信息管理（虚构专业经历）",
+      "degree_zh": "本科",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "experience": [
+    {
+      "id": "example-internship-01",
+      "company_zh": "示例科技（虚构）",
+      "company_en": "Example Technology (Fictional)",
+      "title_zh": "产品实习生（虚构经历）",
+      "title_en": "Product Intern (Fictional)",
+      "start": "2024-07",
+      "end": "2024-09",
+      "is_internship": true,
+      "is_full_time": false,
+      "responsibilities_zh": "虚构示例：整理用户反馈，协助维护需求清单。",
+      "bullets": [
+        {
+          "zh": "虚构示例：协助检查活动报名表的字段与提示文案。",
+          "en": "Fictional example: helped review fields and helper text in an event registration form."
+        }
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "id": "example-project-01",
+      "name_zh": "校园活动报名工具（虚构练习）",
+      "name_en": "Campus Event Registration (Fictional Exercise)",
+      "role_zh": "原型设计（虚构角色）",
+      "start": "2024-10",
+      "end": "2024-12",
+      "description_zh": "虚构示例：为课程练习设计活动报名和报名结果查询页面。",
+      "responsibilities_zh": "虚构示例：整理页面流程，制作交互原型，记录课堂反馈。"
+    }
+  ],
+  "skills": {
+    "product_zh": ["交互原型（虚构示例技能）", "需求整理（虚构示例技能）"]
+  },
+  "narratives": {
+    "one_liner_zh": "虚构示例：拥有课程原型练习和产品实习经历的应届毕业生。"
+  },
+  "unknown_fields": [
+    {
+      "id": "example-phone-unknown",
+      "aliases_zh": ["手机号码", "联系电话"],
+      "aliases_en": ["Phone number", "Mobile"],
+      "why": "教学示例不提供可联系真人的电话号码；建立自己的 profile 时以本人已确认信息替换。"
+    }
+  ],
+  "source_metadata": {
+    "person": {"file": "fictional-resume.md", "section": "虚构示例：基本信息"},
+    "example-education-01": {"file": "fictional-resume.md", "section": "虚构示例：教育"},
+    "example-internship-01": {"file": "fictional-resume.md", "section": "虚构示例：实习"},
+    "example-project-01": {"file": "fictional-resume.md", "section": "虚构示例：课程项目"},
+    "skills": {"file": "fictional-resume.md", "section": "虚构示例：技能"},
+    "narratives.one_liner_zh": {"file": "fictional-resume.md", "section": "虚构示例：自我介绍"}
+  }
+}

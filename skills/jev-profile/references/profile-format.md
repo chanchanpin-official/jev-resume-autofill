@@ -2,6 +2,8 @@
 
 根节点是 JSON 对象。未知值省略；空容器合法。插件匹配以下结构，所有键均为可选：
 
+仓库中的 `docs/examples/profile.synthetic.json` 提供一份完整虚构示例；它仅帮助理解格式，不是用户材料，不得将其内容并入真实 profile。
+
 | 键 | 类型 | 内容 |
 | --- | --- | --- |
 | `person` | 对象 | `name_zh/name_en`、`phone/email`、已证实的所在地；不要放证件号 |

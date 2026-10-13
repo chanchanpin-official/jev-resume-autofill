@@ -72,6 +72,14 @@ def clean_page(page):
     return cleaned
 
 
+def industry_allows(record, page):
+    excluded = record.get("application_policy", {}).get("exclude_industries", [])
+    industry = page.get("application_industry", "unknown")
+    # With an explicit exclusion policy, an unknown target is not permission
+    # to expand restricted records. Existing webpage content is left untouched.
+    return not excluded or (industry != "unknown" and industry not in excluded)
+
+
 def scoped_records(profile, section, page, include_archived=False):
     """Only partition employment status when a form explicitly separates the types."""
     if re.search(r"教育|education", section, re.I):
@@ -91,12 +99,12 @@ def scoped_records(profile, section, page, include_archived=False):
         return ["award_" + str(i) for i in range(len(profile.get("honors", {}).get("dated_items", [])))]
     if re.search(r"实习|internship", section, re.I):
         return ["experience_" + str(i) for i, record in enumerate(profile.get("experience", []))
-                if page.get("application_industry") not in record.get("application_policy", {}).get("exclude_industries", [])
+                if industry_allows(record, page)
                 and (record.get("is_internship") is True or re.search(r"实习|intern", " ".join(str(record.get(k, "")) for k in ("title_zh", "title_en", "employment_type", "employment_type_zh", "employment_type_en")), re.I))]
     if re.search(r"工作|work experience", section, re.I):
         separate = re.search(r"实习|internship", str(page.get("sections", "")), re.I)
         return ["experience_" + str(i) for i, record in enumerate(profile.get("experience", []))
-                if page.get("application_industry") not in record.get("application_policy", {}).get("exclude_industries", [])
+                if industry_allows(record, page)
                 and (not separate or record.get("is_full_time") is True or (record.get("is_full_time") is not False and record.get("is_internship") is not True and re.search(r"全职|正式员工|full.?time", " ".join(str(record.get(k, "")) for k in ("title_zh", "title_en", "employment_type", "employment_type_zh", "employment_type_en")), re.I)))]
     return None
 
@@ -223,7 +231,7 @@ class Catalog:
                     self.groups[gid]["entries"][cid] = item
                     self.candidates[cid] = item
         for key in ("narratives", "skills", "honors", "publications", "research_focus", "gaming_profile"):
-            title = "narratives: complete personal introductions, professional summaries and self-evaluations (个人介绍 / 自我介绍 / 个人简介 / 自我描述 / 自我评价), plus supporting writing fragments" if key == "narratives" else key + ": facts and existing writing from the profile"
+            title = "narratives: complete personal introductions, professional summaries and self-evaluations (个人介绍 / 自我介绍 / 个人简介 / 自我描述 / 自我评价), plus supporting writing fragments" if key == "narratives" else "skills: language names and proficiency (语言 / 掌握程度), language examination types and paired scores (考试类型 / 成绩 / IELTS / CET), certificates, research methods and technical skills" if key == "skills" else key + ": facts and existing writing from the profile"
             group(key, title, profile.get(key, {}), key)
         for i, record in enumerate(profile.get("honors", {}).get("dated_items", [])):
             title = "Award record %d: %s" % (i+1, record.get("zh", ""))
@@ -234,7 +242,7 @@ class Catalog:
     def evidence(self, group_id=None, limit=24000):
         items = self.groups.get(group_id, {}).get("entries", self.candidates)
         out, length = [], 0
-        for c in items.values():
+        for c in sorted(items.values(), key=lambda c: (c["source"].count(".") + c["source"].count("["), 0 if c["source"].endswith((".start_exact", ".end_exact", ".is_present")) else 1)):
             row = {k: c[k] for k in ("id", "description", "value", "source")}
             size = len(json.dumps(row, ensure_ascii=False))
             if length + size > limit:
@@ -394,6 +402,9 @@ def candidate_description(candidate, field, limit=240):
                  "end": "结束时间 / 毕业时间 / End date", "end_exact": "结束时间（完整日期） / Exact end date",
                  "title_zh": "职务 / 职位 / Job title", "department_and_title_zh": "所在部门及职务 / Department and job title",
                  "role_zh": "本条经历的角色 / Role in this record", "description_zh": "本条经历的工作内容 / Record description",
+                 "company_zh": "任职公司名称 / Employer name in Chinese, not department or parent group",
+                 "legal_name_zh": "任职公司完整法定名称 / Full legal employer name in Chinese",
+                 "company_group_zh": "雇主所属集团 / Parent group, not the employing business unit",
                  "school_zh": "学校名称（大学，不是学院） / University name, not faculty",
                  "faculty_zh": "学院名称 / Faculty or academic unit within university",
                  "unit_zh": "所属学院或枢纽 / Academic faculty, college or hub",
@@ -419,6 +430,10 @@ NARRATIVE_MATCH_GUIDANCE = (
     "For 项目角色/project role, an explicitly documented personal function in role_zh (such as user research or AIGC production) is valid even without a formal job title; never infer leader, founder or manager. "
     "For a factual job-title field whose placeholder also requests a department (e.g. 职务 / 请填写所在部门，如市场部实习生), "
     "prefer the existing combined department_and_title_zh when provided; it answers both requirements without inventing a role. "
+    "For a plain 职位/职务/job title without a department request, prefer title_zh/title_en, not department_and_title_zh. "
+    "Use the language of the actual field label unless it explicitly requests another language; page.form_language is only a fallback. "
+    "A YYYY-MM-DD field prefers start_exact/end_exact when available over a less precise start/end. "
+    "An explicit ongoing end (is_present=true / Present) is a valid end-status answer even when no calendar end date exists. "
     "For personal introductions, self-descriptions, professional summaries and self-evaluations "
     "(个人介绍/自我介绍/个人简介/自我描述/自我评价), prefer a complete existing version over a supporting fragment. "
     "Match the prompt, job, language and max_length. For a general professional prompt prefer the complete professional version "
@@ -556,7 +571,7 @@ class Engine:
             map_questions, groups = {}, {}
             for i, f in enumerate(batch):
                 route = routes.get("group_"+str(i), {})
-                record_key = (f["section"], f.get("record_index")) if f.get("record_index") is not None else None
+                record_key = (f["section"], f.get("record_index")) if f.get("record_index") is not None and allowed_groups[i] is not None else None
                 if record_key in record_routes:
                     route = record_routes[record_key]
                 elif record_key is not None and route.get("choice") in self.catalog.groups and route.get("confidence", 0) >= self.high:
@@ -581,7 +596,7 @@ class Engine:
                         if not evidence_role_allowed(original, f):
                             continue
                         literal = format_for_field(original["value"], f)
-                        if not self.fits(literal, f):
+                        if not self.candidate_fits(original, f):
                             continue
                         # Distinct yes/no facts may share the same literal while
                         # proving unrelated things (AI experience vs relocation).
@@ -617,14 +632,14 @@ class Engine:
                 answer = answers.get("field_"+str(i), {})
                 confidence = float(answer.get("confidence", 0))
                 # A repeated record must first have an unambiguous identity.
-                if f.get("record_index") is not None:
+                if f.get("record_index") is not None and allowed_groups[i] is not None:
                     locked = record_routes.get((f["section"], f.get("record_index")), routes.get("group_"+str(i), {}))
                     confidence = min(confidence, float(locked.get("confidence", 0)))
                 candidate = self.catalog.candidates.get(answer.get("choice"))
                 if candidate and allowed_groups[i] is not None and candidate["group"] != groups[i]:
                     candidate = None
                 narrative = f.get("type") in ("text", "textarea", "contenteditable", "textbox", "") and routes.get("narrative_"+str(i), {}).get("noul", 0) >= .9
-                if candidate and confidence >= self.high and self.fits(format_for_field(candidate["value"], f), f):
+                if candidate and confidence >= self.high and self.candidate_fits(candidate, f):
                     results.append(self.fill_result(f, candidate, confidence, narrative))
                     continue
                 if self.low <= confidence < self.high:
@@ -636,18 +651,18 @@ class Engine:
                     evidence = list(unique.values())
                     retry = self.client.jev({"field": f, "page": page, "related_evidence": evidence},
                         {"match": choice("Select the existing evidence id that fully answers `field`. Use related facts to resolve ambiguity. Choose none if uncertain. " + NARRATIVE_MATCH_GUIDANCE,
-                            {c["id"]: candidate_description(self.catalog.candidates[c["id"]], f, 3000) for c in evidence if self.fits(format_for_field(c["value"], f), f)})}).get("match", {})
+                            {c["id"]: candidate_description(self.catalog.candidates[c["id"]], f, 3000) for c in evidence if self.candidate_fits(self.catalog.candidates[c["id"]], f)})}).get("match", {})
                     candidate = self.catalog.candidates.get(retry.get("choice"))
                     if candidate and allowed_groups[i] is not None and candidate["group"] != groups[i]:
                         candidate = None
                     confidence = float(retry.get("confidence", 0))
-                    if candidate and confidence >= self.high and self.fits(format_for_field(candidate["value"], f), f):
+                    if candidate and confidence >= self.high and self.candidate_fits(candidate, f):
                         results.append(self.fill_result(f, candidate, confidence, narrative))
                         continue
                     # Closely related spellings/date representations can split a
                     # retrieval vote. Rejudge the proposed literal against the
                     # whole record; acceptance still requires the normal threshold.
-                    if candidate and self.low <= confidence < self.high and self.fits(format_for_field(candidate["value"], f), f):
+                    if candidate and self.low <= confidence < self.high and self.candidate_fits(candidate, f):
                         check = self.client.jev({"field": f, "page": page, "related_evidence": evidence,
                             "proposed": {"source": candidate["source"], "value": format_for_field(candidate["value"], f)},
                             "date_convention": state["date_convention"]}, {"match": choice(
@@ -660,7 +675,7 @@ class Engine:
                     # A selected, known date can receive a low retrieval score
                     # merely because its day is a user-authorized convention.
                     # Verify that exact candidate; never generate missing dates.
-                    if candidate and candidate["group"] == groups[i] and self.fits(format_for_field(candidate["value"], f), f):
+                    if candidate and candidate["group"] == groups[i] and self.candidate_fits(candidate, f):
                         check = self.client.jev({"field": f, "page": page,
                             "record": self.catalog.groups[groups[i]]["description"],
                             "related_evidence": self.catalog.evidence(groups[i]),
@@ -724,6 +739,16 @@ class Engine:
         return {"id": field["id"], "status": "fill", "value": "Yes" if answer["choice"] == "yes" else "No",
                 "confidence": min(route_confidence, confidence), "source": "jev:present:" + group_id,
                 "review": False, "reason": "Jev 根据原经历时间判断是否至今"}
+
+    def candidate_fits(self, candidate, field):
+        if date_format(field) == "YYYY-MM-DD" and re.fullmatch(r"\d{4}-\d{2}", candidate["value"]):
+            exact_source = candidate["source"] + "_exact"
+            exact = next((c for c in self.catalog.groups.get(candidate.get("group"), {}).get("entries", {}).values()
+                if c["source"] == exact_source and re.fullmatch(r"\d{4}-\d{2}-\d{2}", c["value"])
+                and c["value"].startswith(candidate["value"] + "-")), None)
+            if exact:
+                return False  # Explicit day takes precedence over the day-01 convention.
+        return self.fits(format_for_field(candidate["value"], field), field)
 
     @staticmethod
     def fits(value, field):

@@ -85,6 +85,46 @@ class EngineTests(unittest.TestCase):
         self.assertNotIn('Student leadership role',seen[0]['projects_0__role_zh'])
         self.assertNotIn('projects_0__responsibilities_zh',seen[0])
 
+    def test_unscoped_language_row_does_not_lock_retrieval_group(self):
+        self.path.write_text(json.dumps({'atomic_fields':[{'id':'level','en':'English proficiency','value':'熟练'}],
+            'skills':{'languages':[{'language_zh':'英语','level_zh':'熟练'}]}}))
+        class Client(FakeClient):
+            def jev(self,state,questions):
+                result=super().jev(state,questions)
+                for key in questions:
+                    if key.startswith('group_'):
+                        result[key]={'choice':'atomic','confidence':.52,'probabilities':{'atomic':.53,'skills':.3}}
+                    elif key.startswith('field_'):
+                        # Actual Jev retrieval was weak but the factual match was strong.
+                        self.test_options=questions[key]['criteria']
+                        result[key]={'choice':'atomic_level','confidence':.92}
+                return result
+        client=Client()
+        result=Engine(self.path,client).decide([{'id':'level','label':'掌握程度','section':'其他语言能力',
+            'record_index':0,'record_hint':'语言=英语','type':'custom'}],{})['decisions'][0]
+        self.assertEqual(result['status'],'fill')
+        self.assertEqual(result['value'],'熟练')
+        self.assertTrue(any(key.startswith('skills_') for key in client.test_options))
+        self.assertEqual(client.generated,0)
+
+    def test_known_exact_date_wins_over_default_first_day(self):
+        self.path.write_text(json.dumps({'experience':[{'company_zh':'Example Employer',
+            'is_internship':True,'start':'2025-11','end':'2026-05','end_exact':'2026-05-13'}],
+            'date_conventions':{'month_only_default_day':1}}))
+        class Client(FakeClient):
+            def jev(self,state,questions):
+                result=super().jev(state,questions)
+                if 'field_0' in questions:
+                    options=questions['field_0']['criteria']
+                    assert 'experience_0__end' not in options
+                    assert 'experience_0__end_exact' in options
+                    result['field_0']={'choice':'experience_0__end_exact','confidence':.99}
+                return result
+        result=Engine(self.path,Client()).decide([{'id':'end','label':'结束时间','type':'custom',
+            'format':'YYYY-MM-DD','section':'实习经历','record_index':0,'record_group':'experience_0'}],{})['decisions'][0]
+        self.assertEqual(result['value'],'2026-05-13')
+        self.assertEqual(result['source'],'experience[0].end_exact')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "profile.json"
@@ -175,7 +215,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.decide(FakeClient(), max_length=4)["status"], "review")
 
     def test_private_id_never_reaches_models(self):
-        private = {"fields": {"id_number": {"value": "110101199001010011"}}}
+        private = {"fields": {"id_number": {"value": "000000000000000000"}}}
         self.path.with_name("profile.private.json").write_text(json.dumps(private))
         client = FakeClient()
         output = Engine(self.path, client).decide([{"id": "a", "label": "身份证号"}], {})
@@ -198,10 +238,10 @@ class EngineTests(unittest.TestCase):
         self.assertNotIn("SECRET", json.dumps(result))
 
     def test_followup_question_context_is_bounded_and_redacted(self):
-        result = clean_field({"label": "If so, describe it", "preceding_labels": ["Old"] + ["x" * 600, "AI experience?", "110101199001010011"], "value": "PRIVATE ANSWER"})
+        result = clean_field({"label": "If so, describe it", "preceding_labels": ["Old"] + ["x" * 600, "AI experience?", "000000000000000000"], "value": "PRIVATE ANSWER"})
         self.assertEqual(len(result["preceding_labels"]), 3)
         self.assertEqual(len(result["preceding_labels"][0]), 400)
-        self.assertNotIn("110101199001010011", json.dumps(result))
+        self.assertNotIn("000000000000000000", json.dumps(result))
         self.assertNotIn("PRIVATE ANSWER", json.dumps(result))
         self.assertNotIn("preceding_labels", clean_field({"preceding_labels": {"html": "SECRET"}}))
 
@@ -230,7 +270,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(client.ranks,[])
 
     def test_redaction(self):
-        self.assertNotIn("110101199001010011", redact({"text": "110101199001010011"}))
+        self.assertNotIn("000000000000000000", redact({"text": "000000000000000000"}))
 
     def test_catalog_excludes_metadata_and_private_paths(self):
         catalog = Catalog(PROFILE)
