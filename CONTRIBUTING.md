@@ -13,7 +13,7 @@ npm run audit
 npm run package
 ```
 
-`npm test` 覆盖 Python 逻辑、四种模型协议、skill 工具与隔离浏览器中的虚构表单。`test:widgets` 使用开发依赖中的 Vue 2 / Element UI 验证旧式控件，不读取外部下载的私有资源。Vue 2 / Element UI 仅用于测试 legacy 控件，生产扩展及 Python bridge 不加载这些依赖。CI 在 Ubuntu 上执行同样检查。
+`npm test` 覆盖 Python 逻辑、四种模型协议、skill 工具与隔离浏览器中的虚构表单；首次安装回归还覆盖安装 skill、配置 API、创建 profile、启动真实 bridge、配对恢复和首次填写。`test:widgets` 使用开发依赖中的 Vue 2 / Element UI 验证旧式控件，不读取外部下载的私有资源。Vue 2 / Element UI 仅用于测试 legacy 控件，生产扩展及 Python bridge 不加载这些依赖。CI 在 Ubuntu 上执行同样检查。
 
 可用 `TEST_BROWSER_PATH` 选择本机 Edge / Chromium 可执行文件；不设置时使用 Playwright Chromium。可用 `TEST_HEADLESS=0` 启动可见的隔离测试窗口；Linux 有头模式使用 `xvfb-run -a npm test`。Chromium 扩展测试通过 CDP 在隔离 profile 中安装解压扩展；额外调试标志仅用于测试，不是日常安装要求。测试不连接真实岗位页面，不调用付费 API。
 

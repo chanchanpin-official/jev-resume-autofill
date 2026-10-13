@@ -12,7 +12,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from engine import Engine, Catalog, ModelClient, ModelServiceError, redact
-from model_config import setting
+from model_config import setting, configuration_status
+from readiness import profile_identity, profile_status, configuration_identity
 from pipeline import analyze
 from profile_memory import save_answer
 from form_support import get_support, complete_correction
@@ -147,7 +148,7 @@ def run_job(job_id, payload):
                 result = analyze(fields, PROFILE, high, low, payload.get("page", {}), publish, task_progress, cancelled, record_context=records)
             else:
                 result = engine.decide(fields, payload.get("page", {}), progress, cancelled)
-            if result.get("paused") and payload.get("client_version") not in ("0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0", "0.2.3"):
+            if result.get("paused") and payload.get("client_version") not in ("0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0", "0.2.3", "0.2.4"):
                 # Older injected scripts do not understand partial paused results.
                 # Return a job error so they stop instead of retrying the same batch.
                 raise ModelServiceError(result["error"])
@@ -222,16 +223,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/health":
             try:
                 client = ModelClient()
-                data = json.loads(PROFILE.read_text(encoding="utf-8")) if PROFILE.is_file() else {}
-                ready = isinstance(data, dict) and bool(Catalog(data).candidates)
-                local = urlsplit(client.generator_base).hostname in ("127.0.0.1", "localhost", "::1")
+                ready, profile_error = profile_status(PROFILE)
+                config = configuration_status()
                 return self.respond(200, {"ok": True, "profile": ready,
-                    "jev_configured": bool(ModelClient.credential("TYPESAFE_API_KEY")),
-                    "generator_configured": bool(client.generator_model and (local or ModelClient.credential("LLM_API_KEY"))),
-                    "generator_model": client.generator_model, "generator_protocol": client.protocol, "version": "0.2.3"})
+                    "profile_id": profile_identity(PROFILE), "profile_error": profile_error,
+                    "configuration_id": configuration_identity(TOKEN),
+                    "jev_configured": config['jev_configured'], "generator_configured": config['generator_configured'],
+                    "configuration_errors": config['errors'], "environment_overrides": config['environment_overrides'],
+                    "generator_model": client.generator_model, "generator_protocol": client.protocol, "version": "0.2.4"})
             except Exception:
                 return self.respond(200, {"ok": True, "profile": False, "jev_configured": False,
-                    "generator_configured": False, "config_error": "profile 或本机 API 配置无效，请检查本机文件", "version": "0.2.3"})
+                    "generator_configured": False, "config_error": "profile 或本机 API 配置无效，请检查本机文件", "version": "0.2.4"})
         if path == "/form-support":
             return self.respond(200, get_support(PROFILE))
         if path == "/reports":
@@ -317,7 +319,7 @@ def main():
     parser.add_argument("--profile", type=Path, default=Path(setting("JEV_PROFILE_PATH", str(PROFILE))))
     parser.add_argument("--setup-only", action="store_true")
     args = parser.parse_args()
-    PORT, PROFILE = args.port, args.profile.resolve()
+    PORT, PROFILE = args.port, args.profile.expanduser().resolve()
     PROFILE.parent.mkdir(parents=True, exist_ok=True)
     if not PROFILE.exists():
         PROFILE.write_text("{}\n", encoding="utf-8")
@@ -334,7 +336,7 @@ def main():
             request = urllib.request.Request("http://127.0.0.1:%d/health" % PORT, headers={"Authorization": "Bearer " + TOKEN})
             with urllib.request.urlopen(request, timeout=3) as response:
                 existing = json.load(response)
-            if existing.get("version") in ("0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0", "0.2.3"):
+            if existing.get("version") in ("0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5", "0.1.6", "0.1.7", "0.1.8", "0.1.9", "0.1.10", "0.1.11", "0.1.12", "0.1.13", "0.1.14", "0.1.15", "0.1.16", "0.1.17", "0.1.18", "0.1.19", "0.1.20", "0.1.21", "0.1.22", "0.1.23", "0.1.24", "0.1.25", "0.1.26", "0.1.27", "0.1.28", "0.1.39", "0.1.40", "0.2.0", "0.2.3", "0.2.4"):
                 print("本机服务已在运行（版本 %s）；代码升级后需结束旧服务再启动。" % existing["version"])
                 return
         except Exception:

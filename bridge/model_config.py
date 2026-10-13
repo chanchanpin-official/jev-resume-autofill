@@ -13,6 +13,8 @@ DEFAULT_BASES = {
     "anthropic": "https://api.anthropic.com/v1",
     "gemini": "https://generativelanguage.googleapis.com/v1beta",
 }
+CONFIG_KEYS = ('TYPESAFE_API_KEY', 'TYPESAFE_API_KEY_FILE', 'JEV_BASE_URL', 'JEV_MODEL',
+               'LLM_PROTOCOL', 'LLM_BASE_URL', 'LLM_MODEL', 'LLM_API_KEY', 'LLM_API_KEY_FILE', 'LLM_JSON_MODE')
 
 
 def local_config():
@@ -46,10 +48,66 @@ def credential(name):
 
 def safe_base(url):
     url = str(url).rstrip("/")
-    parsed = urlsplit(url)
+    try:
+        parsed = urlsplit(url)
+        parsed.port  # Validate malformed / out-of-range ports without echoing the input.
+    except ValueError:
+        raise ValueError('API base URL 格式或端口无效') from None
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError("API base URL 不得包含凭据、查询参数或片段")
     if not parsed.hostname or (parsed.scheme != "https" and not (
             parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "localhost", "::1"))):
         raise ValueError("API base URL 必须使用 HTTPS；本机模型可使用 loopback HTTP")
+    if parsed.path.endswith(('/chat/completions', '/responses', '/messages', '/systemone', '/models', ':generateContent')):
+        raise ValueError("请填写 API base URL，不要填写具体操作接口或 /models 路径")
     return url
+
+
+def configuration_status(config=None, environment=None):
+    """Inspect effective configuration without contacting providers or returning secrets."""
+    environment = os.environ if environment is None else environment
+    overrides = sorted(key for key in CONFIG_KEYS if key in environment)
+    result = {'jev_configured': False, 'generator_configured': False,
+              'environment_overrides': overrides, 'errors': []}
+    try:
+        config = local_config() if config is None else config
+    except ValueError as exc:
+        result['errors'].append(str(exc))
+        return result
+    value = lambda key, default='': environment.get(key, config.get(key, default))
+
+    def key_present(name):
+        direct = value(name)
+        if direct:
+            return isinstance(direct, str) and bool(direct.strip())
+        filename = value(name + '_FILE')
+        if filename:
+            try:
+                return bool(Path(filename).expanduser().read_text(encoding='utf-8').strip())
+            except (OSError, ValueError, TypeError, UnicodeError):
+                result['errors'].append(name + '_FILE 密钥文件不可读或无效')
+        return False
+
+    for provider in ('JEV', 'LLM'):
+        errors = len(result['errors'])
+        protocol = value('LLM_PROTOCOL', 'openai-chat') if provider == 'LLM' else None
+        if provider == 'LLM' and protocol not in PROTOCOLS:
+            result['errors'].append('LLM_PROTOCOL 无效')
+            protocol = 'openai-chat'
+        base_default = DEFAULT_BASES[protocol] if provider == 'LLM' else 'https://api.typesafe.ai/v1'
+        local = False
+        try:
+            base = safe_base(value(provider + '_BASE_URL', base_default))
+            local = urlsplit(base).hostname in ('127.0.0.1', 'localhost', '::1')
+        except ValueError:
+            result['errors'].append(provider + '_BASE_URL 无效；须填写无凭据的 API 基础地址')
+        model = value(provider + '_MODEL', 'jev-latest' if provider == 'JEV' else '')
+        if not isinstance(model, str) or not model.strip():
+            result['errors'].append(provider + '_MODEL 不能为空')
+        key = 'TYPESAFE_API_KEY' if provider == 'JEV' else 'LLM_API_KEY'
+        if not key_present(key) and not (provider == 'LLM' and local):
+            result['errors'].append('缺少 ' + key + ' 或可读的 _FILE 密钥文件')
+        if provider == 'LLM' and value('LLM_JSON_MODE', 'on') not in ('on', 'off'):
+            result['errors'].append('LLM_JSON_MODE 必须为 on 或 off')
+        result['jev_configured' if provider == 'JEV' else 'generator_configured'] = len(result['errors']) == errors
+    return result

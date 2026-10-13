@@ -108,7 +108,8 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(self.calls[-1][2]['model'], 'fixture-jev')
 
     def test_api_urls_reject_embedded_keys_or_remote_plaintext(self):
-        for url in ('https://user:pass@example.invalid/v1', 'http://example.invalid/v1', 'https://example.invalid/v1?key=secret', 'file:///private/file'):
+        for url in ('https://user:pass@example.invalid/v1', 'http://example.invalid/v1', 'https://example.invalid/v1?key=secret', 'file:///private/file',
+                    'https://example.invalid:bad/v1', 'https://example.invalid:70000/v1', 'https://example.invalid/v1/chat/completions'):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 safe_base(url)
 

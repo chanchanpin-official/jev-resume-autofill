@@ -32,46 +32,57 @@
 
 ## 版本与下载
 
-当前源码版本为 **0.2.3**，包含 Ant 表单识别、日期确认、精确日期优先等修复。源码与 [Releases](https://github.com/chanchanpin-official/jev-resume-autofill/releases) 安装包分别更新；使用前核对发布页的版本号。需要当前源码功能时克隆仓库，或从 GitHub 的 Code → Download ZIP 下载源码。
+当前源码版本为 **0.2.4**，包含首次初始化、自检、个人 API 实测、配对恢复及此前的表单修复。首次初始化流程需要 0.2.4 或更高源码；安装新 skill 不会自动升级旧插件。源码与 [Releases](https://github.com/chanchanpin-official/jev-resume-autofill/releases) 安装包分别更新；使用前核对发布页的版本号。需要当前源码功能时克隆仓库，或从 GitHub 的 Code → Download ZIP 下载源码。
 
-## 快速开始
+## 快速开始：从安装 skill 到首次填写
 
-需要 Python 3.9+、Chrome 或 Edge，以及自己的 Jev API key 和生成模型 API。运行插件不需要 Node.js；Node.js 只用于开发和测试。
+需要 Python 3.9+、桌面 Chrome / Edge、支持本地 skill 的 agent、自己的 Jev API key 和生成模型 API，以及本人的求职材料。运行插件不需要 Node.js；Node.js 只用于开发和测试。安装 skill 不附带模型账号或额度，也不会自动取得浏览器扩展权限。
 
-1. 下载 [Releases](https://github.com/chanchanpin-official/jev-resume-autofill/releases) 中所需版本的 ZIP 并解压，或克隆此仓库。进入包含 `bridge/`、`extension/`、`scripts/` 的插件根目录。
-2. 在终端配置自己的 API。密钥输入不显示，只存入本机 `.runtime/config.json`：
-
-   ```sh
-   python3 scripts/configure.py
-   ```
-
-   选择生成协议，输入 base URL（含 `/v1` 等版本路径）、model ID 和 API key。Jev 使用 [TypeSafe System One API](https://docs.typesafe.ai/api)，默认 `jev-latest`，可修改 base URL 与 model。常见供应商和本机模型的设置见 [API 配置参考](docs/API-CONFIGURATION.md)。
-
-3. 将 `skills/jev-profile` 安装到你的 agent 的 skills 目录。例如 Codex：
+1. 下载匹配版本的源码或 [Release](https://github.com/chanchanpin-official/jev-resume-autofill/releases)，解压后进入包含 `bridge/`、`extension/`、`scripts/` 的插件根目录。确认存在 `scripts/doctor.py`。首次使用可克隆当前源码：
 
    ```sh
-   mkdir -p ~/.codex/skills
-   cp -R skills/jev-profile ~/.codex/skills/
+   git clone https://github.com/chanchanpin-official/jev-resume-autofill.git
+   cd jev-resume-autofill
    ```
 
-   已有同名 skill 时更新其文件；安装后重新打开 agent 会话。向 agent 提出：
+2. 安装 / 更新随仓库提供的 skill：
 
-   > 使用 $jev-profile，阅读资料工作区 `<我的求职资料目录>` 中的全部相关文档，在插件根目录 `<插件目录>` 生成 profile/profile.json。记录来源、冲突和缺失信息，未知事实留空。
+   ```sh
+   python3 scripts/install_skill.py
+   ```
 
-   核对生成的姓名、联系方式、经历、日期及 `profile/review-notes.md`。模板 `{}` 本身不能填写表单。也可以参照[虚构 profile 示例及修改步骤](docs/PROFILE-EXAMPLE.md)，按 [profile 格式参考](skills/jev-profile/references/profile-format.md) 手工建立自己的资料；不要将示例履历用于真实申请。
+   默认写入 Codex 当前支持的 `~/.agents/skills/jev-profile`；[官方安装位置说明](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)。使用其他 agent 或已有自定义目录时，加 `--skills-dir "<其 skills 父目录>"`。安装器重复运行不会嵌套目录；更新前把旧副本备份到本插件的私有 `.runtime/skill-backups/`。检测到旧 `~/.codex/skills/jev-profile` 时会停止创建第二份副本，提示指定原目录更新或先整理旧安装。避免在新旧目录各留一份同名 skill。确认 agent 的 skill 列表中出现 `jev-profile`；未出现时重新打开会话。
 
-4. 启动本机服务并保持终端打开：
+3. 向 agent 提出完整初始化请求：
+
+   > 使用 $jev-profile 初始化 Jev 简历填写插件。插件根目录是 `<完整插件路径>`，我的求职资料目录是 `<资料路径>`。引导我配置自己的 Jev 和 LLM API，从我的材料建立可追溯的 profile，并完成自检、服务配对和浏览器连接验收。缺失事实留空，各步骤按实际结果报告。
+
+   skill 会串联以下工作：你在**自己的交互终端**运行 `python3 scripts/configure.py`，在不回显的提示中输入两类 API key，并选择 LLM 协议、base URL 和 model；agent 读取授权材料并建立 `profile/profile.json`、来源清单和 `profile/review-notes.md`。向导不接受聊天 / 命令行参数中的 key；必需字段缺失时不保存。使用已有环境变量 / `_FILE` 配置时可跳过向导，但须通过自检。参考 [API 配置](docs/API-CONFIGURATION.md)。
+
+   核对姓名、联系方式、经历、日期和待确认项。默认 `{}` 不能填表；仓库的[虚构示例](docs/PROFILE-EXAMPLE.md)只教结构，不能作为自己的履历。
+
+4. 在插件根目录检查本地资料和配置，再测试 API：
+
+   ```sh
+   python3 scripts/doctor.py
+   python3 scripts/doctor.py --probe-models
+   ```
+
+   第一条完全不调用模型。第二条仅向你配置的 Jev / LLM 发送固定虚构内容，验证认证、模型和响应格式，**可能产生少量 API 费用，不发送个人 profile**。若暂不实测，可以停在“本地配置就绪”，不能将其当作 API 已可用。失败会返回非零退出码和修复方向；修改后再测。
+
+5. 启动服务，保持终端打开：
 
    ```sh
    python3 -B bridge/server.py
    ```
 
-   macOS 也可双击 `start.command`。启动会创建空 profile（若不存在）、本机配对令牌和 `extension/local-config.js`；不会自动读取其他工作区的个人资料。
+   macOS 也可双击 `start.command`。在另一个终端进入同一插件根目录，运行 `python3 scripts/doctor.py --bridge`，确认配对、版本、profile 路径及实际服务配置一致。自定义端口时两处均加 `--port 17322`；自定义 profile 时两处均加 `--profile "<资料路径>"`。不要将其他目录中已运行的旧服务当成本目录的新服务。
 
-5. 在 `chrome://extensions` 或 `edge://extensions` 打开开发者模式，点击“加载已解压的扩展程序”，选择 `extension` 目录。先启动服务，再加载扩展；已加载过的扩展点击“重新加载”。设置页点击“检查连接”，确认 profile、Jev 和生成模型已配置。
-6. 手动登录招聘网站、选择岗位、打开申请表；点插件 → **开始填写**。完成后查看人工接手清单，核对文字、手动上传附件和确认声明，最后自行提交。
+6. 打开 `chrome://extensions` 或 `edge://extensions`，启用开发者模式并“加载已解压的扩展程序”，选择本目录 `extension`；已有安装则“重新加载”。进入扩展设置页，点击“检查连接”，确认 profile、Jev、生成模型三项就绪。更换目录或令牌后若仍使用旧配对，先重载扩展，再点击“恢复本目录配对”。这是最后一项浏览器验收，命令行检查不能代替它。
 
-Windows 中若 `python3` 不可用，用 `py -3` 替换；路径有空格时加引号。详细的重试、草稿和排障操作见 [使用参考](docs/USAGE.md)。
+完成后，手动登录招聘网站、选好岗位并打开申请表，点击插件 → **开始填写**。查看人工接手清单，审阅文字、手动上传附件和处理声明，最后自行提交。
+
+Windows 中若 `python3` 不可用，用 `py -3` 替换；路径有空格时加引号。安装位置、每步成功标准及故障恢复见 [首次初始化与验收](skills/jev-profile/references/onboarding.md)，日常使用见 [使用参考](docs/USAGE.md)。
 
 ## 支持的生成 API 协议
 
@@ -113,4 +124,4 @@ npm run audit
 npm run package
 ```
 
-Python 后端只用标准库。测试使用虚构资料、本机 HTTP fixture 和隔离浏览器，不调用付费模型或操作真实申请。生产扩展不加载测试依赖。打包采用文件白名单，并执行公开信息检查；发布前还应对真实身份标识进行本地专项扫描。检查范围和本次结果见[隐私复核说明](docs/PRIVACY-REVIEW.md)。
+Python 后端只用标准库。测试使用虚构资料、本机 HTTP fixture 和隔离浏览器，不调用付费模型或操作真实申请。生产扩展不加载测试依赖。初始化链路的测试证据与实测边界见 [0.2.4 验收记录](docs/VALIDATION-0.2.4.md)。打包采用文件白名单，并执行公开信息检查；发布前还应对真实身份标识进行本地专项扫描。隐私检查范围见[隐私复核说明](docs/PRIVACY-REVIEW.md)。

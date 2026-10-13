@@ -133,7 +133,7 @@ const ROOT=path.resolve(__dirname,'..');
   await worker.evaluate(async ()=>{
     const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
     if(!tab?.id)throw Error('No active tab for status fixture');
-    await chrome.storage.session.set({['report-'+tab.id]:{running:false,version:'0.2.3',total:20,completed:8,ready:0,started_at:Date.now()-12000,finished_at:Date.now(),progress:'本轮已停止，可重试待处理',current_field:'',items:[],analysis:{tasks:{}}}});
+    await chrome.storage.session.set({['report-'+tab.id]:{running:false,version:'0.2.4',total:20,completed:8,ready:0,started_at:Date.now()-12000,finished_at:Date.now(),progress:'本轮已停止，可重试待处理',current_field:'',items:[],analysis:{tasks:{}}}});
   });
   await popup.waitForFunction(()=>document.querySelector('#fraction').textContent.includes('8 / 20'));
   assert.equal(await popup.locator('#progress').getAttribute('value'),'8');

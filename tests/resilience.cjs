@@ -37,7 +37,7 @@ const {chromium,browserOptions}=require('./browser-runtime.cjs'),path=require('p
   if(s==='upgrade'){window.oldStarts=0;window.__resumeAutofill={getRunning(){return false;}};window.listeners.push(m=>{if(m.kind==='start')window.oldStarts++;});const panel=document.createElement('div');panel.id='resume-autofill-panel';document.body.append(panel);}
  },scenario);
  await p.addScriptTag({path:path.resolve(__dirname,'../extension/content.js')});
- if(scenario==='upgrade'){await p.evaluate(()=>window.listeners.forEach(fn=>fn({kind:'start-0.2.3',settings:{expandRecords:false}})));await p.waitForFunction(()=>!window.__resumeAutofill.getRunning());assert.equal(await p.evaluate(()=>window.oldStarts),0);assert.equal(await p.locator('#resume-autofill-panel').count(),1);}
+ if(scenario==='upgrade'){await p.evaluate(()=>window.listeners.forEach(fn=>fn({kind:'start-0.2.4',settings:{expandRecords:false}})));await p.waitForFunction(()=>!window.__resumeAutofill.getRunning());assert.equal(await p.evaluate(()=>window.oldStarts),0);assert.equal(await p.locator('#resume-autofill-panel').count(),1);}
  else await p.evaluate(()=>window.__resumeAutofill.start({expandRecords:false}));
  const r=await p.evaluate(()=>({report:window.__resumeAutofill.getReport(),clicks:window.clicks,optionCalls:window.optionCalls,fieldCalls:window.fieldCalls,department:document.querySelector('#department').value}));
  if(scenario.startsWith('service')){assert.equal(r.report.filter(x=>x.status==='review').length,0);assert.equal(r.report.filter(x=>x.status==='error').length,1);assert.equal(r.fieldCalls,1);assert.equal(r.department,scenario==='service-options'?'Design':'');}
