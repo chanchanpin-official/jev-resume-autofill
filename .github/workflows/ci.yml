@@ -23,3 +23,77 @@ jobs:
       - run: python3 -B scripts/audit_public.py --tracked
       - run: python3 -B skills/jev-profile/scripts/validate_profile.py docs/examples/profile.synthetic.json --require-facts
       - run: npm run package
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          if not re.fullmatch(r'v\d+\.\d+\.\d+', tag):
+              raise SystemExit('Release tag must be a stable vMAJOR.MINOR.PATCH version')
+          version = tag[1:]
+          for file in ('extension/manifest.json', 'package.json', 'package-lock.json'):
+              if json.loads(Path(file).read_text())['version'] != version:
+                  raise SystemExit('Release version mismatch: ' + file)
+          if not Path('docs/releases/' + tag + '.md').is_file():
+              raise SystemExit('Missing release notes for ' + tag)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('RELEASE_VERSION=' + version + '\n')
+          PY
+      - run: python3 -B scripts/package.py
+      - name: Verify archive and prepare checksum
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess, zipfile
+          from pathlib import Path
+          version = os.environ['RELEASE_VERSION']
+          archive = Path('dist/jev-resume-autofill-' + version + '.zip')
+          tracked = set(subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')) - {''}
+          prefix = 'jev-resume-autofill/'
+          with zipfile.ZipFile(archive) as package:
+              assert package.testzip() is None
+              assert len(package.namelist()) == len(tracked)
+              assert set(package.namelist()) == {prefix + path for path in tracked}
+              for path in tracked:
+                  assert package.read(prefix + path) == subprocess.check_output(['git', 'show', 'HEAD:' + path]), path
+              assert json.loads(package.read(prefix + 'profile/profile.example.json')) == {}
+          checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
+          Path('dist/SHA256SUMS.txt').write_text(checksum + '  ' + archive.name + '\n')
+          notes = Path('docs/releases/v' + version + '.md').read_text(encoding='utf-8')
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          ci = os.environ['GITHUB_SERVER_URL'] + '/' + os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID']
+          notes += '\n\n发布提交：`' + commit + '`。\n[发布前 CI 检查](' + ci + ')\n\n安装包 SHA-256：\n```text\n' + checksum + '\n```\n'
+          Path('.runtime').mkdir(exist_ok=True)
+          Path('.runtime/release-notes.md').write_text(notes, encoding='utf-8')
+          print('Verified', len(tracked), 'public files against the release commit; SHA-256', checksum)
+          PY
+      - name: Publish checked release with assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            "dist/jev-resume-autofill-$RELEASE_VERSION.zip" dist/SHA256SUMS.txt \
+            --verify-tag --latest \
+            --title "Jev Resume Autofill $RELEASE_VERSION" \
+            --notes-file .runtime/release-notes.md

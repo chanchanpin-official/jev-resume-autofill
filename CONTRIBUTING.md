@@ -24,3 +24,9 @@ npm run package
 教学 profile 只放在 `docs/examples/profile.synthetic.json`，内容必须完全虚构；真实资料始终放在被忽略的 `profile/`。发布检查会拒绝疑似真实手机号和证件号形态；需要测试数字脱敏时使用故意无效的全零数字。示例须通过 `skills/jev-profile/scripts/validate_profile.py` 校验，默认 `profile/profile.example.json` 保持 `{}`。历史版本与发布附件须单独检查，见 [隐私复核说明](docs/PRIVACY-REVIEW.md)。
 
 不得提交 `.runtime/`、个人 `profile/`、`extension/local-config.js`、真实网页 HTML、日志、草稿或截图。打包脚本仅收集源码白名单；新增文件需要同时检查 Git 跟踪与打包规则。漏洞报告见 [SECURITY](SECURITY.md)。
+
+## 发布安装包
+
+维护者发布前统一 manifest、package 与锁文件版本，并准备 `docs/releases/v<版本>.md`。推送对应 `v<主版本>.<次版本>.<补丁>` 标签后，现有 CI 先执行全部检查；只有 `checks` 成功，`release` job 才获得本次所需的仓库内容写入权限，核对版本、逐文件验证 ZIP 与标签提交、生成 SHA-256 校验文件，并发布为最新正式版。普通分支和 PR 不会发布。
+
+发布使用 GitHub Actions 临时 `GITHUB_TOKEN`，无需个人 PAT。上传失败时检查是否遗留草稿；不要覆盖已发布版本或移动旧标签，应先确认附件和目标提交，再处理草稿或发布新版本。
