@@ -1,6 +1,6 @@
 # 0.2.4 首次初始化验收
 
-检查日期：2026-10-13。此记录对应源码更新，不表示已创建同版本 GitHub Release。
+检查日期：2026-10-13。此记录对应 0.2.4 源码与安装包的验收范围；安装包和发布状态见 [v0.2.4 Release](https://github.com/chanchanpin-official/jev-resume-autofill/releases/tag/v0.2.4)。
 
 ## 初始化流程
 

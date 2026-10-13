@@ -1,5 +1,13 @@
 # API 配置参考
 
+## 获取自己的 API
+
+Jev 的官方获取入口是 [TypeSafe API 控制台](https://console.typesafe.ai/)；注册或登录后按控制台提示创建自己的 API key，并确认账号可用额度。[官方快速开始](https://docs.typesafe.ai/introduction/quickstart)也从这里取得 key。控制台网址不是 API base URL；本插件使用 `https://api.typesafe.ai/v1` 与默认 model `jev-latest`。
+
+生成模型需另向所选供应商获取 API key、可用 model ID 和对应区域 / 网关的 base URL。下方列出协议示例和官方文档。是否需要开通或充值、价格及额度均以供应商页面为准；本插件不附带账号、key 或付费额度。
+
+## 在本机配置
+
 在用户自己的交互终端运行 `python3 scripts/configure.py` 完成配置；不要在聊天中发送密钥或通过管道 / 命令参数传入。配置只存于 `.runtime/config.json`，不会进入扩展或发布包。必需密钥 / model / 协议不完整时不保存，原文件保持不变。更换 API 地址或协议时不会复用旧 key，必须提供新凭据；loopback 无鉴权 LLM 除外。变更后重启 bridge；网页未保存时不要刷新申请页面。
 
 所有参数也支持环境变量；同名环境变量优先于文件配置。向导发现相关变量会列出变量名并停止，避免用户修改文件后实际仍使用旧环境。若选择环境配置，直接运行 doctor；若改用文件配置，先在当前终端取消这些变量，再运行向导和服务。不要输出变量值，也不要盲目删除全局 shell 配置。密钥可以用 `TYPESAFE_API_KEY_FILE`、`LLM_API_KEY_FILE` 指向本机文件，直接密钥优先于 `_FILE`。不要把密钥写到 shell 命令历史、仓库、Issue 或浏览器设置中。

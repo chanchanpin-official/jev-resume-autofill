@@ -32,13 +32,24 @@
 
 ## 版本与下载
 
-当前源码版本为 **0.2.4**，包含首次初始化、自检、个人 API 实测、配对恢复及此前的表单修复。首次初始化流程需要 0.2.4 或更高源码；安装新 skill 不会自动升级旧插件。源码与 [Releases](https://github.com/chanchanpin-official/jev-resume-autofill/releases) 安装包分别更新；使用前核对发布页的版本号。需要当前源码功能时克隆仓库，或从 GitHub 的 Code → Download ZIP 下载源码。
+当前版本为 **v0.2.4**，包含首次初始化、自检、个人 API 实测、配对恢复及此前的表单修复。
+
+- **[下载 v0.2.4 安装包 ZIP](https://github.com/chanchanpin-official/jev-resume-autofill/releases/download/v0.2.4/jev-resume-autofill-0.2.4.zip)**：包含浏览器扩展、本机 bridge、skill 和中文说明。
+- [v0.2.4 发布说明与校验文件](https://github.com/chanchanpin-official/jev-resume-autofill/releases/tag/v0.2.4) · [始终查看最新正式版](https://github.com/chanchanpin-official/jev-resume-autofill/releases/latest)。
+
+下载后先完整解压，保留整个目录；这不是双击安装的 `.crx` 文件，浏览器需要按下文加载其中的 `extension/` 子目录。本机服务会从同一目录读取配置与资料。安装新 skill 不会自动升级旧插件。开发者也可克隆仓库；`main` 后续可能包含尚未发布的改动。
+
+## 从哪里获取 Jev 和 LLM API
+
+1. **Jev / TypeSafe**：打开 [TypeSafe 官方 API 控制台](https://console.typesafe.ai/)，注册或登录自己的账号，按控制台提示创建 API key 并核对账户可用额度。获取入口见 [TypeSafe 官方快速开始](https://docs.typesafe.ai/introduction/quickstart)。本插件配置向导中的 Jev base URL 使用 `https://api.typesafe.ai/v1`，model 默认 `jev-latest`；不要填成控制台网址或完整的 `/systemone` 操作地址。
+2. **生成模型 LLM**：另行向自己选择的供应商获取 API key、可用 model ID 和 base URL，并选择匹配协议。支持 OpenAI 兼容、Responses、Anthropic、Gemini；供应商示例及官方文档见 [API 配置参考](docs/API-CONFIGURATION.md#供应商设置示例)。聊天产品订阅本身不会替本插件提供 API 凭据或额度。
+3. 在自己的交互终端运行 `python3 scripts/configure.py`，把两类 key 分别填入对应的不回显提示。密钥留在本机，不贴进聊天、Issue、命令参数或浏览器配对令牌框。填写完后按下文运行 `--probe-models`，确认自己的账号和模型实际可用；账号开通条件、价格与额度以供应商当前页面为准。
 
 ## 快速开始：从安装 skill 到首次填写
 
 需要 Python 3.9+、桌面 Chrome / Edge、支持本地 skill 的 agent、自己的 Jev API key 和生成模型 API，以及本人的求职材料。运行插件不需要 Node.js；Node.js 只用于开发和测试。安装 skill 不附带模型账号或额度，也不会自动取得浏览器扩展权限。
 
-1. 下载匹配版本的源码或 [Release](https://github.com/chanchanpin-official/jev-resume-autofill/releases)，解压后进入包含 `bridge/`、`extension/`、`scripts/` 的插件根目录。确认存在 `scripts/doctor.py`。首次使用可克隆当前源码：
+1. 下载上方 **v0.2.4 安装包**，解压后进入 `jev-resume-autofill/`，确认其中有 `bridge/`、`extension/`、`scripts/doctor.py`。命令均在这个插件根目录执行；不要在 ZIP 内直接运行或只复制 `extension/`。也可克隆当前源码：
 
    ```sh
    git clone https://github.com/chanchanpin-official/jev-resume-autofill.git
@@ -78,11 +89,20 @@
 
    macOS 也可双击 `start.command`。在另一个终端进入同一插件根目录，运行 `python3 scripts/doctor.py --bridge`，确认配对、版本、profile 路径及实际服务配置一致。自定义端口时两处均加 `--port 17322`；自定义 profile 时两处均加 `--profile "<资料路径>"`。不要将其他目录中已运行的旧服务当成本目录的新服务。
 
-6. 打开 `chrome://extensions` 或 `edge://extensions`，启用开发者模式并“加载已解压的扩展程序”，选择本目录 `extension`；已有安装则“重新加载”。进入扩展设置页，点击“检查连接”，确认 profile、Jev、生成模型三项就绪。更换目录或令牌后若仍使用旧配对，先重载扩展，再点击“恢复本目录配对”。这是最后一项浏览器验收，命令行检查不能代替它。
+6. 安装浏览器插件：把 `chrome://extensions`（Chrome）或 `edge://extensions`（Edge）粘贴到浏览器地址栏并打开，启用“开发者模式”，点击“加载已解压的扩展程序”，选择 **`jev-resume-autofill/extension/`**（里面应有 `manifest.json`），不是外层根目录或 ZIP 文件。同一路径已有安装时点击插件卡片的“重新加载”；换目录安装时确认加载的是新目录。
+
+   从插件卡片的“详细信息 → 扩展选项”，或扩展图标菜单的“选项”打开设置页，点击“检查连接”，确认 profile、Jev、生成模型三项就绪。更换目录或令牌后若仍使用旧配对，先重载扩展，再点击“恢复本目录配对”。可将扩展固定到浏览器工具栏，便于打开填写弹窗。命令行检查不能代替此项浏览器验收；常见问题见下方说明。
 
 完成后，手动登录招聘网站、选好岗位并打开申请表，点击插件 → **开始填写**。查看人工接手清单，审阅文字、手动上传附件和处理声明，最后自行提交。
 
 Windows 中若 `python3` 不可用，用 `py -3` 替换；路径有空格时加引号。安装位置、每步成功标准及故障恢复见 [首次初始化与验收](skills/jev-profile/references/onboarding.md)，日常使用见 [使用参考](docs/USAGE.md)。
+
+### 安装与升级常见问题
+
+- **“找不到清单文件”**：先解压全部文件，选中含 `manifest.json` 的 `extension/` 目录。
+- **设置页显示未连接**：确认同一份目录的 `bridge/server.py` 正在运行；重载扩展后再检查连接，必要时“恢复本目录配对”。API key 不等于配对令牌。
+- **profile 为空或 API 未配置**：完成自己的 API 配置和真实 profile 创建，再运行 `python3 scripts/doctor.py`；安装包不会附带他人的资料或密钥。
+- **从旧版升级**：先备份本机私有 `profile/` 和 `.runtime/config.json`。关闭旧 bridge，把新版完整解压到明确的目录，仅迁移自己的资料与 API 配置；不要复制旧 `extension/local-config.js` 或配对令牌。更新 skill、启动新 bridge 后重新加载对应扩展并检查连接。若旧扩展仍指向另一目录，停用旧副本，避免同时运行两份。
 
 ## 支持的生成 API 协议
 
